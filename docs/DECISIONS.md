@@ -35,3 +35,23 @@ Under the logistic activation and the brief's single-neuron threshold
 saturation bound under those assumptions, not a verified formula from
 d'Avila Garcez and Zaverucha (1999); it does not establish a bound for an
 entire recurrent network with OR aggregation.
+
+## Sigmoid mode and training (implemented)
+
+`--mode sigmoid` scales every weight and hidden/output threshold of the step
+network by W and marks hidden and output neurons `sigmoid`. With `--weight
+auto` (default) W is the minimum bound rounded up to two decimals; a smaller
+user-supplied W is rejected with `error(weight_below_bound(W, Min), _)`, and the
+chosen W is logged. The bound is the derived one above, made fan-in dependent:
+with k the largest clause body size or number of clauses sharing a head,
+\(\epsilon = 1/(2(k+1))\) and \(W = 2\ln((1-\epsilon)/\epsilon)\). It is not the
+published CILP formula and has not been checked against the paper.
+
+The runtime reads sigmoid neurons out at 0.5 (equivalently, weighted sum above
+threshold), so sigmoid fixpoints equal step-mode fixpoints; this is tested on
+all five acceptance examples. Training (`ann_train/3,4`) is backpropagation of
+the cross-entropy error of an atom's output neuron through its hidden neurons,
+using the network's current thresholded model as input (one T_P step). It
+stops early when all examples are classified correctly. Weights belong to
+ground clauses, so training does not generalise to other ground instances of
+the same source clause. `ann_extract/2` remains step-mode only.

@@ -9,12 +9,12 @@ not yet satisfy the v1 acceptance criteria in full.
 | FR-2 | Partial — cut, dynamic database, I/O, collection predicates, unsupported system calls, nested terms, and unsupported arithmetic expressions are rejected with source locations |
 | FR-3 | Implemented for predicate dependency stratification; reports predicate indicators in a negative cycle |
 | FR-4 | Implemented — counts grounded head/body atoms; default limit 10,000 |
-| FR-5 | Partial — exact step mode only |
+| FR-5 | Implemented — `--mode step` (exact) and `--mode sigmoid [--weight auto\|W]` |
 | FR-6 | Partial — emits a module independent of source, with a generic package runtime dependency |
 | FR-7 | Implemented in emitted modules for ground goals |
 | FR-8 | Implemented in emitted modules for matching active atoms |
 | FR-9 | Implemented for the supported subset — weighted-neuron fixpoint evaluation, default and configurable per-network step limits (`--step-limit`), and source/network least-model comparison with `ann_verify/3` |
-| FR-10 | Not implemented — sigmoid backpropagation |
+| FR-10 | Implemented — `ann_train/3,4` backpropagation on sigmoid networks (per-ground-clause weights); `ann_save/2` writes trained networks. `tanh` is not implemented |
 | FR-11 | Implemented for step-mode `network/7` terms and loaded generated modules; extracts ground rules and supports round-trip conversion |
 | FR-12 | Implemented for the step-mode representation — traces input, hidden, and output neurons to represented ground clauses, with source file and line |
 | FR-13 | Implemented for the current step-mode schema — exports atoms, neurons, weighted edges, recurrent links, and traces via `--json` or `ann_export_json/2` |
@@ -24,10 +24,11 @@ not yet satisfy the v1 acceptance criteria in full.
 1. Finish typed-domain inference and variable binding/range semantics; the
    current grounding universe is global. Implement bounded lists/compound terms
    and complete the required unsupported-syntax diagnostics.
-2. Verify the sigmoid/CILP formula against the cited paper before implementing
-   sigmoid/tanh modes and training; record the exact assumptions.
-3. Add sigmoid/training tests after implementing M4 and finish release/pack
-   metadata checks before claiming M1–M6 complete.
+2. Verify the sigmoid weight bound against the cited CILP paper (the current
+   bound is derived, see `DECISIONS.md`) and add the bipolar `tanh` mode.
+3. Training adjusts ground-network weights only; it does not generalise across
+   ground instances of one source clause. Finish release/pack metadata checks
+   before claiming M1–M6 complete.
 
 ## Tests and examples to run now
 

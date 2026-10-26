@@ -1,7 +1,8 @@
 :- module(prolog2ann_runtime,
           [ ann_query/3,
             ann_query_all/3,
-            run_network/4
+            run_network/4,
+            run_network_term/4
           ]).
 
 :- use_module(library(lists)).
@@ -48,6 +49,19 @@ run_network(Module, Atoms, Steps, Reached) :-
     run_strata(Strata, Module, [], Base, Limit, Neurons, Edges, Recurrent,
                Model, Steps, Reached),
     Atoms = Model.
+
+%! run_network_term(+Network, -Atoms, -Steps, -ReachedFixpoint) is det.
+%
+% Evaluate an in-memory network/7 term (step or sigmoid mode) as run_network/4
+% does for a generated module. Sigmoid neurons are read out at 0.5.
+run_network_term(network(Base0, Rules, Strata0, _, Neurons, Edges, Recurrent),
+                 Atoms, Steps, Reached) :-
+    sort(Base0, Base),
+    sort(Strata0, Strata),
+    length(Base, BaseSize),
+    Limit is BaseSize + 1,
+    run_strata(Strata, rules(Rules), [], Base, Limit, Neurons, Edges,
+               Recurrent, Atoms, Steps, Reached).
 
 %! module_facts(+Module, ?Template, +Goal, -Facts) is det.
 %
@@ -126,18 +140,25 @@ close_round(Step, Module, Stratum, Current, Base, Limit, Neurons, Edges,
 applicable_heads(Module, Stratum, Current, Neurons, Edges, Recurrent, Heads) :-
     fired_hidden(Neurons, Edges, Recurrent, Current, Hidden),
     findall(Head,
-            ( Module:network_rule(Head, _, _, Stratum),
+            ( rule_head(Module, Stratum, Head),
               output_fires(Head, Neurons, Edges, Hidden)
             ),
             Heads0),
     sort(Heads0, Heads).
+
+rule_head(rules(Rules), Stratum, Head) :-
+    !,
+    member(rule(Head, _, _, Stratum), Rules).
+rule_head(Module, Stratum, Head) :-
+    Module:network_rule(Head, _, _, Stratum).
 
 %! fired_hidden(+Neurons, +Edges, +Recurrent, +Current, -Hidden) is det.
 %
 % Evaluate each step-mode hidden neuron from its weighted active inputs.
 fired_hidden(Neurons, Edges, Recurrent, Current, Hidden) :-
     findall(Id,
-            ( member(neuron(hidden(Id), hidden, step, Threshold), Neurons),
+            ( member(neuron(hidden(Id), hidden, Activation, Threshold), Neurons),
+              memberchk(Activation, [step, sigmoid]),
               weighted_input_sum(hidden(Id), Edges, Recurrent, Current, Sum),
               Sum > Threshold
             ),
@@ -159,7 +180,8 @@ weighted_input_sum(Neuron, Edges, Recurrent, Current, Sum) :-
 %
 % Evaluate an output neuron's weighted incoming hidden activations.
 output_fires(Atom, Neurons, Edges, Hidden) :-
-    memberchk(neuron(out(Atom), output, step, Threshold), Neurons),
+    memberchk(neuron(out(Atom), output, Activation, Threshold), Neurons),
+    memberchk(Activation, [step, sigmoid]),
     findall(Weight,
             ( member(edge(hidden(Id), out(Atom), Weight), Edges),
               memberchk(Id, Hidden)

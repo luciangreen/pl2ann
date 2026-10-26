@@ -139,8 +139,8 @@ The `--json FILE` option writes a JSON object containing `mode`, `atoms`,
 `neurons` (IDs, layers, activations, and thresholds), `edges` (source, target,
 and weight), `recurrent` links, and source `traces`. The library also exports
 `ann_export_json(+File, +Network)` for exporting a network returned by
-`convert_file/3` or `convert_clauses/3`. JSON currently describes the
-step-mode representation; it does not imply support for sigmoid training.
+`convert_file/3` or `convert_clauses/3`. JSON describes the step- or
+sigmoid-mode network (`mode` field).
 
 For example, exporting the network for the single fact `p(a).` produces this
 shape:
@@ -217,8 +217,7 @@ values from `domain/2` and `range/3`; type labels are not used to constrain
 individual variables or predicate positions. Arithmetic syntax outside the
 supported integer-expression operators is rejected during parsing. Nested
 compound/list terms, cut, dynamic database operations, I/O,
-`findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Only
-exact step mode is implemented. The runtime
+`findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Step and sigmoid modes are implemented. The runtime
 evaluates the emitted step-mode weights and thresholds; symbolic ground rules
 remain in the module for stratum metadata, verification, and extraction.
 
@@ -227,11 +226,24 @@ atom appears, and hidden neurons for their corresponding ground clause. Clause
 IDs identify the clauses in the grounded network, not original variable-bearing
 source clauses. `ann_extract/2` and JSON export are implemented for the current
 step-mode schema; extraction returns represented ground rules, not original
-source text. Sigmoid/tanh activation, a verified CILP weight-bound implementation,
-and training are not implemented. Verification covers least-model agreement
+source text. Sigmoid mode and training are implemented; `tanh` and a verified CILP weight
+bound are not. Verification covers least-model agreement
 only for programs in the supported finite-domain subset.
 Consult
 [`STATUS.md`](STATUS.md) for the requirement-by-requirement list.
+
+## Sigmoid mode and training
+
+```sh
+swipl bin/prolog2ann.pl convert examples/flies.pl --mode sigmoid --weight auto \
+  --out build/net_flies.pl --module net_flies
+swipl bin/prolog2ann.pl query build/net_flies.pl "flies(tweety)"
+```
+
+In Prolog: `ann_train(Network, [flies(pingu)-false, ...], Trained)` (options
+`epochs(N)`, `rate(R)` via `ann_train/4`) and `ann_save(Trained, File)`. Sigmoid
+outputs are thresholded at 0.5 and agree with step mode. See `DECISIONS.md` for
+the weight bound and training limits.
 
 ## Tests
 
@@ -288,7 +300,7 @@ that order. The current extraction API can be exercised from the Prolog top
 level after loading `prolog/prolog2ann.pl` and generating or converting a
 network: call `prolog2ann:ann_extract(Network, Clauses)` and then
 `prolog2ann:convert_clauses(Clauses, [], RoundTripNetwork)`.
-sigmoid training remains to be implemented. Randomized equivalence is covered
+Randomized equivalence is covered
 by the deterministic 200-program property test above. See
 [`STATUS.md`](STATUS.md) for the current requirement-by-requirement status and
 the remaining milestones.

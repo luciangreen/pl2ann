@@ -3,7 +3,10 @@
             convert_clauses/3,
             ann_verify/3,
             ann_export_json/2,
-            ann_extract/2
+            ann_extract/2,
+            ann_train/3,
+            ann_train/4,
+            ann_save/2
           ]).
 
 :- use_module('prolog2ann/parse').
@@ -14,17 +17,19 @@
 :- use_module('prolog2ann/json_export').
 :- use_module('prolog2ann/extract', []).
 :- use_module('prolog2ann/runtime').
+:- use_module('prolog2ann/train').
 :- use_module(library(lists)).
 :- use_module(library(error)).
 
 %! convert_file(+Source, +Options, -Network) is det.
 %
-% Convert a finite-domain Prolog file to a step-mode network. Options may
-% contain domain(File), out(File), json(File), module(Name), mode(step),
-% limit(MaxAtoms), and step_limit(MaxRounds).
+% Convert a finite-domain Prolog file to a step- or sigmoid-mode network. Options may
+% contain domain(File), out(File), json(File), module(Name),
+% mode(step|sigmoid), weight(auto|W), limit(MaxAtoms), and
+% step_limit(MaxRounds).
 convert_file(Source, Options, Network) :-
     option_value(mode, Options, step, Mode),
-    ( Mode == step -> true ; throw(error(unsupported_mode(Mode), _)) ),
+    check_mode(Mode),
     option_value(limit, Options, 10000, Limit),
     must_be(positive_integer, Limit),
     option_value(step_limit, Options, none, StepLimit),
@@ -37,7 +42,8 @@ convert_file(Source, Options, Network) :-
     normalise(Parsed, Normalised),
     domain_values(DomainFile, DomainValues),
     ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
-    translate(Ground, Atoms, Network),
+    translate(Ground, Atoms, Network0),
+    apply_mode(Mode, Options, Network0, Network),
     (   option_value(out, Options, none, Output),
         Output \== none
     ->  option_value(module, Options, prolog2ann_generated, Module),
@@ -71,11 +77,26 @@ convert_clauses(Clauses, Options, Network) :-
     maplist(as_parsed_clause, Clauses, Parsed),
     normalise(Parsed, Normalised),
     option_value(mode, Options, step, Mode),
-    ( Mode == step -> true ; throw(error(unsupported_mode(Mode), _)) ),
+    check_mode(Mode),
     option_value(domain_values, Options, [], DomainValues),
     option_value(limit, Options, 10000, Limit),
     ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
-    translate(Ground, Atoms, Network).
+    translate(Ground, Atoms, Network0),
+    apply_mode(Mode, Options, Network0, Network).
+
+check_mode(Mode) :-
+    (   memberchk(Mode, [step, sigmoid]) -> true
+    ;   throw(error(unsupported_mode(Mode), _))
+    ).
+
+%! apply_mode(+Mode, +Options, +StepNetwork, -Network) is det.
+%
+% Keep a step network, or scale it for sigmoid mode using the weight(W) option
+% (auto or a number, default auto).
+apply_mode(step, _, Network, Network).
+apply_mode(sigmoid, Options, Network0, Network) :-
+    option_value(weight, Options, auto, Weight),
+    sigmoid_network(Network0, Weight, Network).
 
 %! ann_verify(+Source, +Network, -Result) is det.
 %

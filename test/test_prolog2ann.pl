@@ -27,6 +27,69 @@ test(parse_example) :-
     prolog2ann_parse:parse_file(File, Clauses),
     length(Clauses, 9).
 
+test(sigmoid_matches_step_on_examples, [forall(member(Name, [ancestor, reach, even_odd, xor, flies]))]) :-
+    test_prolog2ann:example(Name, File),
+    example_domain(Name, Options0),
+    prolog2ann:convert_file(File, [mode(step)|Options0], Step),
+    prolog2ann:convert_file(File, [mode(sigmoid)|Options0], Sigmoid),
+    prolog2ann_runtime:run_network_term(Step, StepModel, _, true),
+    prolog2ann_runtime:run_network_term(Sigmoid, SigmoidModel, _, true),
+    assertion(StepModel == SigmoidModel).
+
+test(sigmoid_weight_below_bound_rejected) :-
+    prolog2ann:convert_clauses([p(a)], [], Step),
+    prolog2ann_train:sigmoid_min_weight(Step, Min),
+    assertion(Min > 0),
+    catch(prolog2ann:convert_clauses([p(a)], [mode(sigmoid), weight(0.1)], _),
+          error(weight_below_bound(_, _), _), true),
+    prolog2ann:convert_clauses([p(a)], [mode(sigmoid), weight(Min)], Net),
+    assertion(Net = network(_, _, _, _, _, _, _)).
+
+test(sigmoid_module_emits_and_queries) :-
+    tmp_file(prolog2ann_sigmoid, Base),
+    atom_concat(Base, '.pl', File),
+    prolog2ann:convert_clauses([p(a), (q(X) :- p(X), \+ r(X)), r(b)],
+                               [mode(sigmoid)], Net),
+    prolog2ann:ann_save(Net, File),
+    setup_call_cleanup(
+        use_module(File, []),
+        ( file_base_name(Base, Module),
+          Module:ann_query(q(a), true),
+          Module:ann_query(q(b), false),
+          assertion(Module:network_meta(mode(sigmoid)))
+        ),
+        delete_file(File)).
+
+test(sigmoid_training_repairs_corrupted_weight, [nondet]) :-
+    Birds = [b1, b2, b3, b4, b5, b6, b7, b8],
+    findall(bird(B), member(B, Birds), BirdFacts),
+    Clauses = [penguin(b3), (flies(X) :- bird(X), \+ penguin(X))|BirdFacts],
+    prolog2ann:convert_clauses(Clauses, [mode(sigmoid)], Net0),
+    Net0 = network(Atoms, Rules, Strata, Traces, Neurons, Edges0, Rec),
+    Corrupt = edge(in(penguin(b3)), Hidden, Neg),
+    memberchk(Corrupt, Edges0),
+    Neg < 0,
+    Flipped is -Neg,
+    select(Corrupt, Edges0, Others),
+    Bad = network(Atoms, Rules, Strata, Traces, Neurons,
+                  [edge(in(penguin(b3)), Hidden, Flipped)|Others], Rec),
+    Labels = [flies(b3)-false, flies(b1)-true, flies(b2)-true, flies(b4)-true,
+              flies(b5)-true, flies(b6)-true, flies(b7)-true, flies(b8)-true,
+              penguin(b3)-true, penguin(b1)-false, penguin(b2)-false,
+              penguin(b4)-false, bird(b1)-true, bird(b2)-true, bird(b3)-true,
+              bird(b4)-true, bird(b5)-true, bird(b6)-true, bird(b7)-true,
+              bird(b8)-true],
+    prolog2ann_train:ann_agreement(Bad, Labels, Before),
+    assertion(Before < 1.0),
+    prolog2ann:ann_train(Bad, Labels, Trained),
+    prolog2ann_train:ann_agreement(Trained, Labels, After),
+    assertion(After =:= 1.0).
+
+test(train_rejects_step_network) :-
+    prolog2ann:convert_clauses([p(a)], [], Net),
+    catch(prolog2ann:ann_train(Net, [p(a)-true], _),
+          error(domain_error(sigmoid_network, step), _), true).
+
 test(reject_cut_with_source_line) :-
     test_prolog2ann:example(cut, File),
     catch(prolog2ann_parse:parse_file(File, _), Error, true),
@@ -394,6 +457,13 @@ test(extract_from_generated_module) :-
         )).
 
 :- end_tests(prolog2ann).
+
+example_domain(Name, [domain(File)]) :-
+    memberchk(Name, [ancestor, even_odd]),
+    !,
+    atom_concat(Name, '_domain', DomainName),
+    example(DomainName, File).
+example_domain(_, []).
 
 example(Name, File) :-
     examples_directory(Examples),

@@ -5,7 +5,7 @@
 
 %! export_json(+File, +Network) is det.
 %
-% Write the inspectable step-mode network representation as JSON.
+% Write the inspectable step- or sigmoid-mode network representation as JSON.
 export_json(File,
             network(Atoms, _, _, Traces, Neurons, Edges, Recurrent)) :-
     maplist(term_json, Atoms, JsonAtoms),
@@ -13,7 +13,11 @@ export_json(File,
     maplist(edge_json, Edges, JsonEdges),
     maplist(recurrent_json, Recurrent, JsonRecurrent),
     maplist(trace_json, Traces, JsonTraces),
-    Dict = _{mode: "step",
+    (   memberchk(neuron(_, output, sigmoid, _), Neurons)
+    ->  Mode = "sigmoid"
+    ;   Mode = "step"
+    ),
+    Dict = _{mode: Mode,
              atoms: JsonAtoms,
              neurons: JsonNeurons,
              edges: JsonEdges,
