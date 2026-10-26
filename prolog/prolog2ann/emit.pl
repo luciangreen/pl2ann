@@ -33,10 +33,7 @@ emit_terms(Stream, Module, Atoms, Rules, Strata, Traces,
            ':- module(~q, [ann_query/2, ann_query_all/2, ann_run/3, neuron/4, edge/3, recurrent/2, trace/4]).~n',
            [Module]),
     format(Stream, ':- use_module(library(prolog2ann/runtime)).~n~n', []),
-    (   memberchk(neuron(_, output, sigmoid, _), Neurons)
-    ->  Mode = sigmoid
-    ;   Mode = step
-    ),
+    network_mode(Neurons, Mode),
     format(Stream, 'network_meta(mode(~w)).~n', [Mode]),
     emit_step_limit(Stream, StepLimit),
     maplist(emit_atom(Stream), Atoms),
@@ -49,6 +46,13 @@ emit_terms(Stream, Module, Atoms, Rules, Strata, Traces,
     format(Stream, '~nann_query(Goal, Truth) :- prolog2ann_runtime:ann_query(~q, Goal, Truth).~n', [Module]),
     format(Stream, 'ann_query_all(Pattern, Solutions) :- prolog2ann_runtime:ann_query_all(~q, Pattern, Solutions).~n', [Module]),
     format(Stream, 'ann_run(Atoms, Steps, Reached) :- prolog2ann_runtime:run_network(~q, Atoms, Steps, Reached).~n', [Module]).
+
+network_mode(Neurons, Mode) :-
+    (   memberchk(neuron(_, output, Activation, _), Neurons),
+        memberchk(Activation, [sigmoid, tanh])
+    ->  Mode = Activation
+    ;   Mode = step
+    ).
 
 %! step_limit_option(+Options, -StepLimit) is det.
 %

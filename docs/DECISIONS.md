@@ -55,3 +55,13 @@ using the network's current thresholded model as input (one T_P step). It
 stops early when all examples are classified correctly. Weights belong to
 ground clauses, so training does not generalise to other ground instances of
 the same source clause. `ann_extract/2` remains step-mode only.
+
+## Bipolar tanh mode
+
+`--mode tanh` scales every edge weight and hidden/output threshold by a positive
+W and labels those neurons with the bipolar `tanh` activation. The runtime
+classifies an activation as active when it is above zero, which is equivalent
+to comparing the pre-activation weighted sum with the scaled threshold. This
+preserves the step-mode least model for every positive scale. `--weight auto`
+uses W = 1.0; explicit non-positive values are rejected. Tanh mode is not
+currently trainable, and no separate saturation guarantee is claimed.

@@ -1,5 +1,6 @@
 :- module(prolog2ann_train,
           [ sigmoid_network/3,
+            tanh_network/3,
             sigmoid_min_weight/2,
             ann_train/3,
             ann_train/4,
@@ -62,6 +63,31 @@ scale_neuron(W, neuron(Id, Layer, _, T0), neuron(Id, Layer, sigmoid, T)) :-
 
 scale_edge(W, edge(F, T, W0), edge(F, T, W1)) :-
     W1 is W0 * W.
+
+%! tanh_network(+StepNetwork, +Weight, -TanhNetwork) is det.
+%
+% Scale a step-mode network by a positive Weight (or 1.0 for auto) and use
+% bipolar tanh activations. A zero output corresponds to the step threshold.
+tanh_network(Network, Weight, Scaled) :-
+    (   Weight == auto
+    ->  W = 1.0
+    ;   number(Weight), Weight > 0
+    ->  W is float(Weight)
+    ;   number(Weight)
+    ->  throw(error(domain_error(positive_weight, Weight), _))
+    ;   throw(error(type_error(weight, Weight), _))
+    ),
+    Network = network(Atoms, Rules, Strata, Traces, Neurons, Edges, Recurrent),
+    maplist(scale_tanh_neuron(W), Neurons, ScaledNeurons),
+    maplist(scale_edge(W), Edges, ScaledEdges),
+    Scaled = network(Atoms, Rules, Strata, Traces, ScaledNeurons, ScaledEdges,
+                     Recurrent).
+
+scale_tanh_neuron(_, neuron(Id, input, Activation, Threshold),
+                  neuron(Id, input, Activation, Threshold)) :- !.
+scale_tanh_neuron(W, neuron(Id, Layer, _, Threshold0),
+                  neuron(Id, Layer, tanh, Threshold)) :-
+    Threshold is Threshold0 * W.
 
 %! ann_agreement(+Network, +Examples, -Fraction) is det.
 %

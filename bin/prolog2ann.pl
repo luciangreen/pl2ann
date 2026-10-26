@@ -30,7 +30,7 @@ run([verify, Source, NetworkFile]) :-
     report_verification(Result).
 run(_) :-
     format(user_error,
-           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl~n',
+           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl~n',
            []),
     halt(2).
 
