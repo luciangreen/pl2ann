@@ -117,6 +117,33 @@ network with a per-stratum limit of 20. If a stratum has not reached a fixpoint
 within its limit, `ann_run/3` returns `Reached = false` and query predicates
 raise `error(no_fixpoint(Steps), _)`.
 
+Compound and list arguments are opt-in with `--term-depth N` (or
+`term_depth(N)` in `convert_file/3` and `convert_clauses/3`). The default is
+zero, which preserves function-free input. At a positive depth, the converter
+generates finite ground terms from compound functors in the source, including
+the list constructor, up to that nesting depth. Terms deeper than the bound in
+a fixed source fact or rule are rejected with a source-located
+`term_depth_exceeded(Actual, Limit)` error; substitutions that would exceed
+the bound are omitted. Use the same `--term-depth` value with verification:
+
+```sh
+cat > build/terms.pl <<'EOF'
+p(a).
+p(f(X)) :- p(X).
+EOF
+swipl bin/prolog2ann.pl convert build/terms.pl --term-depth 2 \
+  --out build/net_terms.pl --module net_terms
+swipl bin/prolog2ann.pl query build/net_terms.pl "p(f(f(a)))"
+swipl bin/prolog2ann.pl verify build/terms.pl build/net_terms.pl \
+  --term-depth 2
+```
+
+The configured depth is applied to terms inside predicate arguments; atoms and
+variables have depth zero, and each compound/list layer adds one. Constructors
+not present in the source are not invented. Term generation can grow
+combinatorially, so start with a small depth and use `--limit` to cap the
+resulting network's atom base.
+
 The CLI also supports `--module NAME` to choose the generated module name.
 `convert` accepts `--mode step`, `--mode sigmoid`, or `--mode tanh`. For the
 sigmoid mode, `--weight auto` chooses the documented fan-in-dependent bound;
@@ -149,7 +176,7 @@ conversions with identical inputs produce byte-identical generated modules.
 ## Supported behavior
 
 - Facts and definite clauses with variables ranging over a finite set of
-  constants.
+  constants or explicitly bounded compound/list terms.
 - Direct and mutual recursion, conjunction, and disjunction (split into
   separate clauses).
 - Stratified negation as failure; negative dependency cycles are rejected and
@@ -165,6 +192,8 @@ conversions with identical inputs produce byte-identical generated modules.
   constraints on a shared variable intersect. Variables without a typed
   occurrence use the global universe.
 - A configurable maximum Herbrand-base size (default 10,000).
+- Optional finite compound/list grounding with `--term-depth N`; the default
+  depth is zero and preserves function-free behavior.
 - Step, sigmoid, and bipolar tanh Prolog networks with ground queries, pattern
   queries, and fixpoint step reporting, evaluated from their weighted neuron,
   edge, and recurrent-link facts. The default per-stratum limit is base size + 1;
@@ -277,10 +306,11 @@ the converter does not infer a type from predicate names or source constants.
 
 This is an in-progress subset of `pr1.txt`, not the v1 acceptance-complete
 converter. The global fallback universe is the union of source constants and
-values from `domain/2` and `range/3`; explicit positional declarations refine
+values from `domain/2` and `range/3`, extended by source compound constructors
+only when `--term-depth` is positive; explicit positional declarations refine
 that universe for constrained variables. Arithmetic syntax outside the
 supported integer-expression operators is rejected during parsing. Nested
-compound/list terms, cut, dynamic database operations, I/O,
+compound/list terms beyond the configured bound, cut, dynamic database operations, I/O,
 `findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Step,
 sigmoid, and bipolar tanh modes are implemented. The runtime evaluates the
 emitted weighted neuron facts; symbolic ground rules remain in the module for
@@ -363,7 +393,7 @@ implemented features to the checks run by the command above:
 | Feature area | Tests |
 | --- | --- |
 | Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
-| Finite grounding, typed/integer domains, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons` |
+| Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `list_terms_are_bounded_by_depth`, `compound_term_depth_overflow_has_source_location` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |

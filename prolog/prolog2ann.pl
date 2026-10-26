@@ -26,13 +26,16 @@
 %
 % Convert a finite-domain Prolog file to a step-, sigmoid-, or tanh-mode network. Options may
 % contain domain(File), out(File), json(File), module(Name),
-% mode(step|sigmoid|tanh), weight(auto|W), limit(MaxAtoms), and
+% mode(step|sigmoid|tanh), weight(auto|W), limit(MaxAtoms),
+% term_depth(MaxDepth), and
 % step_limit(MaxRounds).
 convert_file(Source, Options, Network) :-
     option_value(mode, Options, step, Mode),
     check_mode(Mode),
     option_value(limit, Options, 10000, Limit),
     must_be(positive_integer, Limit),
+    option_value(term_depth, Options, 0, TermDepth),
+    must_be(nonneg, TermDepth),
     option_value(step_limit, Options, none, StepLimit),
     ( StepLimit == none -> EmitOptions = []
     ; must_be(positive_integer, StepLimit),
@@ -43,7 +46,7 @@ convert_file(Source, Options, Network) :-
     normalise(Parsed, Normalised),
     domain_schema(DomainFile, DomainValues, TypeDomains, PositionTypes),
     ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
-                         Ground, Limit, Atoms),
+                         Ground, Limit, TermDepth, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network),
     (   option_value(out, Options, none, Output),
@@ -76,7 +79,7 @@ ann_extract(Network, Clauses) :-
 % Convert in-memory facts and rules using the same finite-domain pipeline.
 % Options may contain domain_values(Values), domain_types(TypeDomains),
 % position_types(PositionTypes), mode(step|sigmoid|tanh), weight(auto|W),
-% and limit(MaxAtoms).
+% limit(MaxAtoms), and term_depth(MaxDepth).
 convert_clauses(Clauses, Options, Network) :-
     maplist(as_parsed_clause, Clauses, Parsed),
     normalise(Parsed, Normalised),
@@ -86,8 +89,9 @@ convert_clauses(Clauses, Options, Network) :-
     option_value(domain_types, Options, [], TypeDomains),
     option_value(position_types, Options, [], PositionTypes),
     option_value(limit, Options, 10000, Limit),
+    option_value(term_depth, Options, 0, TermDepth),
     ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
-                         Ground, Limit, Atoms),
+                         Ground, Limit, TermDepth, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network).
 
@@ -121,15 +125,17 @@ ann_verify(Source, Network, Result) :-
 % As ann_verify/3, with optional domain(File) grounding declarations.
 ann_verify(Source, Network, Options, Result) :-
     network_contents(Network, Atoms, NetworkRules, NetworkStrata, Module),
+    option_value(term_depth, Options, 0, TermDepth),
     parse_file(Source, Parsed),
     normalise(Parsed, Normalised),
     (   option_value(domain, Options, none, DomainFile),
         DomainFile \== none
     ->  domain_schema(DomainFile, DomainValues, TypeDomains, PositionTypes),
         ground_program_typed(Normalised, DomainValues, TypeDomains,
-                             PositionTypes, Ground, 10000, _)
+                             PositionTypes, Ground, 10000, TermDepth, _)
     ;   network_domain_values(Atoms, DomainValues),
-        ground_program(Normalised, DomainValues, Ground, 10000, _)
+        ground_program_typed(Normalised, DomainValues, [], [], Ground,
+                             10000, TermDepth, _)
     ),
     source_rules(Ground, SourceRules, SourceStrata),
     least_model(SourceRules, SourceStrata, Expected),

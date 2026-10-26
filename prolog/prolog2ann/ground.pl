@@ -1,11 +1,13 @@
 :- module(prolog2ann_ground,
           [ ground_program/5,
             ground_program_typed/7,
+            ground_program_typed/8,
             read_domain/2,
             read_domain_schema/3
           ]).
 
 :- use_module(library(lists)).
+:- use_module(library(error)).
 
 %! read_domain(+File, -Values) is det.
 %
@@ -111,7 +113,7 @@ finite_value(Value) :-
 % built-ins, and enforce the Herbrand-base size limit.
 ground_program(Normalised, DomainValues, GroundClauses, Limit, Atoms) :-
     ground_program_typed(Normalised, DomainValues, [], [], GroundClauses,
-                         Limit, Atoms).
+                         Limit, 0, Atoms).
 
 %! ground_program_typed(+Normalised, +DomainValues, +TypeDomains,
 %!                      +PositionTypes, -GroundClauses, +Limit, -Atoms) is det.
@@ -120,14 +122,29 @@ ground_program(Normalised, DomainValues, GroundClauses, Limit, Atoms) :-
 % universe for variables without a type constraint.
 ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
                      GroundClauses, Limit, Atoms) :-
+    ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                         GroundClauses, Limit, 0, Atoms).
+
+%! ground_program_typed(+Normalised, +DomainValues, +TypeDomains,
+%!                      +PositionTypes, -GroundClauses, +Limit, +TermDepth,
+%!                      -Atoms) is det.
+%
+% As ground_program_typed/7, allowing recursively generated compound values up
+% to TermDepth. Zero retains the function-free behavior.
+ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                     GroundClauses, Limit, TermDepth, Atoms) :-
+    must_be(nonneg, TermDepth),
+    validate_template_depths(Normalised, TermDepth),
     source_values(Normalised, SourceValues),
-    append(DomainValues, SourceValues, Values),
-    sort(Values, Universe),
+    append(DomainValues, SourceValues, AtomicValues0),
+    sort(AtomicValues0, AtomicValues),
+    source_constructors(Normalised, Constructors),
+    bounded_universe(AtomicValues, Constructors, TermDepth, Universe),
     require_finite_universe(Normalised, Universe),
     findall(Ground,
             ( member(Clause, Normalised),
               ground_clause(Clause, Universe, TypeDomains, PositionTypes,
-                            Ground)
+                            TermDepth, Ground)
             ),
             GroundClauses),
     findall(Atom,
@@ -168,13 +185,98 @@ source_values(Clauses, Values) :-
             ),
             Values).
 
+%! validate_template_depths(+Clauses, +Limit) is det.
+%
+% Reject fixed compound structure that already exceeds the configured bound.
+validate_template_depths([], _).
+validate_template_depths(
+        [ground_clause(Head, Positive, Negative, _, _, File, Line, _)|Rest],
+        Limit) :-
+    append([Head|Positive], Negative, Atoms),
+    (   member(Atom, Atoms),
+        atom_compound_depth(Atom, Depth),
+        Depth > Limit
+    ->  throw(error(term_depth_exceeded(Depth, Limit), file(File, Line)))
+    ;   validate_template_depths(Rest, Limit)
+    ).
+
+%! source_constructors(+Clauses, -Constructors) is det.
+%
+% Find compound functors used in predicate arguments, not predicate calls.
+source_constructors(Clauses, Constructors) :-
+    findall(Name/Arity,
+            ( member(ground_clause(Head, Positive, Negative, _, _, _, _, _),
+                     Clauses),
+              append([Head|Positive], Negative, Atoms),
+              member(Atom, Atoms),
+              Atom =.. [_|Arguments],
+              member(Argument, Arguments),
+              sub_term(Term, Argument),
+              compound(Term),
+              functor(Term, Name, Arity)
+            ),
+            Constructors0),
+    sort(Constructors0, Constructors).
+
+%! bounded_universe(+AtomicValues, +Constructors, +Depth, -Universe) is det.
+%
+% Construct all ground terms from source functors through the requested depth.
+bounded_universe(AtomicValues, _, 0, AtomicValues) :-
+    !.
+bounded_universe(AtomicValues, Constructors, Depth, Universe) :-
+    bounded_universe(1, Depth, Constructors, AtomicValues, Universe).
+
+bounded_universe(CurrentDepth, MaximumDepth, _, Values, Values) :-
+    CurrentDepth > MaximumDepth,
+    !.
+bounded_universe(CurrentDepth, MaximumDepth, Constructors, Values0, Values) :-
+    findall(Term,
+            ( member(Name/Arity, Constructors),
+              length(Arguments, Arity),
+              maplist(member_value(Values0), Arguments),
+              Term =.. [Name|Arguments],
+              term_depth(Term, CurrentDepth)
+            ),
+            Terms0),
+    sort(Terms0, Terms),
+    append(Values0, Terms, Values1),
+    sort(Values1, Values2),
+    NextDepth is CurrentDepth + 1,
+    bounded_universe(NextDepth, MaximumDepth, Constructors, Values2, Values).
+
+member_value(Values, Value) :-
+    member(Value, Values).
+
+%! atom_compound_depth(+Atom, -Depth) is det.
+%
+% Measure the deepest term within any predicate argument.
+atom_compound_depth(Atom, Depth) :-
+    Atom =.. [_|Arguments],
+    maplist(term_depth_value, Arguments, Depths),
+    ( Depths == [] -> Depth = 0 ; max_list(Depths, Depth) ).
+
+term_depth_value(Term, Depth) :-
+    term_depth(Term, Depth).
+
+%! term_depth(+Term, -Depth) is det.
+%
+% Atoms and variables have depth zero; each compound layer adds one.
+term_depth(Term, 0) :-
+    ( var(Term) ; atomic(Term) ),
+    !.
+term_depth(Term, Depth) :-
+    Term =.. [_|Arguments],
+    maplist(term_depth_value, Arguments, Depths),
+    max_list(Depths, ChildDepth),
+    Depth is ChildDepth + 1.
+
 %! ground_clause(+Clause, +Universe, -GroundClause) is nondet.
 %
 % Instantiate the clause variables and retain only assignments satisfying
 % every pre-evaluated built-in.
 ground_clause(ground_clause(Head, Positive, Negative, Builtins, Names, File,
                             Line, Stratum),
-              Universe, TypeDomains, PositionTypes,
+              Universe, TypeDomains, PositionTypes, TermDepth,
               ground_clause(GHead, GPositive, GNegative, [], Names, File,
                             Line, Stratum)) :-
     copy_term(Head-Positive-Negative-Builtins,
@@ -184,7 +286,14 @@ ground_clause(ground_clause(Head, Positive, Negative, Builtins, Names, File,
     variable_domains(Variables, ClauseAtoms,
                      TypeDomains, PositionTypes, Universe, Domains),
     assign_variables(Variables, Domains),
+    maplist(within_atom_depth(TermDepth),
+            [GHead|GPositive]),
+    maplist(within_atom_depth(TermDepth), GNegative),
     maplist(evaluate_builtin, GBuiltins).
+
+within_atom_depth(Limit, Atom) :-
+    atom_compound_depth(Atom, Depth),
+    Depth =< Limit.
 
 %! assign_variables(+Variables, +Domains) is nondet.
 %

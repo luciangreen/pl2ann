@@ -45,7 +45,7 @@ validate_head(Head, File, Line) :-
         Head \= (_ :- _),
         functor(Head, Name, Arity),
         \+ reserved_head(Name, Arity),
-        simple_predicate_arguments(Head)
+        supported_predicate_arguments(Head)
     ->  true
     ;   throw(error(unsupported_construct(Head), file(File, Line)))
     ).
@@ -80,7 +80,7 @@ validate_goal(Goal, File, Line) :-
     ->  validate_builtin_goal(Goal, File, Line)
     ;   predicate_property(system:Goal, built_in)
     ->  throw(error(unsupported_construct(Goal), file(File, Line)))
-    ;   simple_predicate_arguments(Goal)
+    ;   supported_predicate_arguments(Goal)
     ->  true
     ;   throw(error(unsupported_construct(compound_term), file(File, Line)))
     ),
@@ -184,12 +184,27 @@ integer_expression_term(Expression) :-
         integer_expression_term(Right)
     ).
 
-%! simple_predicate_arguments(+Term) is semidet.
+%! supported_predicate_arguments(+Term) is semidet.
 %
-% True when each argument is a variable or atomic value.
-simple_predicate_arguments(Term) :-
+% True when each argument is a variable, atomic value, or finite compound term.
+supported_predicate_arguments(Term) :-
     Term =.. [_|Arguments],
-    maplist(simple_argument, Arguments).
+    maplist(supported_argument, Arguments).
+
+%! supported_argument(+Argument) is semidet.
+%
+% Accept recursively nested terms; grounding enforces the configured depth.
+supported_argument(Argument) :-
+    var(Argument),
+    !.
+supported_argument(Argument) :-
+    atomic(Argument),
+    !.
+supported_argument(Argument) :-
+    compound(Argument),
+    Argument =.. [_|Arguments],
+    Arguments \= [],
+    maplist(supported_argument, Arguments).
 
 %! simple_argument(+Argument) is semidet.
 %

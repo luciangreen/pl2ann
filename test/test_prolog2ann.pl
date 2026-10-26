@@ -202,6 +202,49 @@ test(finite_domain_required_for_variables) :-
     assertion(nonvar(Error)),
     assertion(Error = error(finite_domain_required, _)).
 
+test(compound_terms_respect_configured_depth) :-
+    prolog2ann:convert_clauses(
+        [p(a), (p(f(X)) :- p(X))],
+        [domain_values([a]), term_depth(2)],
+        Network),
+    test_prolog2ann:temporary_network(Network, Module, Path),
+    setup_call_cleanup(
+        true,
+        ( prolog2ann_runtime:ann_query(Module, p(a), true),
+          prolog2ann_runtime:ann_query(Module, p(f(a)), true),
+          prolog2ann_runtime:ann_query(Module, p(f(f(a))), true),
+          prolog2ann_runtime:ann_query(Module, p(f(f(f(a)))), false)
+        ),
+        ( unload_file(Path), delete_file(Path) )).
+
+test(list_terms_are_bounded_by_depth) :-
+    prolog2ann:convert_clauses(
+        [item(a), (item([X]) :- item(X))],
+        [domain_values([a]), term_depth(2)],
+        Network),
+    test_prolog2ann:temporary_network(Network, Module, Path),
+    setup_call_cleanup(
+        true,
+        ( prolog2ann_runtime:ann_query(Module, item([a]), true),
+          prolog2ann_runtime:ann_query(Module, item([[a]]), true),
+          prolog2ann_runtime:ann_query(Module, item([[[a]]]), false)
+        ),
+        ( unload_file(Path), delete_file(Path) )).
+
+test(compound_term_depth_overflow_has_source_location) :-
+    tmp_file(prolog2ann_compound, Source),
+    setup_call_cleanup(
+        open(Source, write, Stream),
+        ( write(Stream, 'p(f(a)).'), nl(Stream) ),
+        close(Stream)),
+    setup_call_cleanup(
+        true,
+        ( catch(prolog2ann:convert_file(Source, [], _), Error, true),
+          assertion(Error = error(term_depth_exceeded(1, 0),
+                                   file(Source, 1)))
+        ),
+        delete_file(Source)).
+
 test(typed_domains_restrict_and_intersect_variables) :-
     Clauses = [candidate(ann), candidate(bob), candidate(red),
                allowed(bob), allowed(red),

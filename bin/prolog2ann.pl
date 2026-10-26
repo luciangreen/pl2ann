@@ -31,7 +31,7 @@ run([verify, Source, NetworkFile|Arguments]) :-
     report_verification(Result).
 run(_) :-
     format(user_error,
-           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl [--domain FILE]~n',
+           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--term-depth N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl [--domain FILE] [--term-depth N]~n',
            []),
     halt(2).
 
@@ -63,6 +63,9 @@ parse_options(['--weight', Text|Rest], [weight(Weight)|Options]) :-
     parse_options(Rest, Options).
 parse_options(['--limit', LimitString|Rest], [limit(Limit)|Options]) :-
     !, text_string(LimitString, LimitText), number_string(Limit, LimitText),
+    parse_options(Rest, Options).
+parse_options(['--term-depth', DepthString|Rest], [term_depth(Depth)|Options]) :-
+    !, text_string(DepthString, DepthText), number_string(Depth, DepthText),
     parse_options(Rest, Options).
 parse_options(['--step-limit', LimitString|Rest], [step_limit(Limit)|Options]) :-
     !, text_string(LimitString, LimitText), number_string(Limit, LimitText),

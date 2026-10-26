@@ -15,11 +15,22 @@ their constants are outside a declared argument type. The type restriction
 applies to variable assignments, not to validation or filtering of source
 facts.
 
+## Bounded compound and list terms
+
+Compound and list values are generated only from functors already present in
+predicate arguments in the source. `term_depth(N)` (CLI `--term-depth N`)
+bounds nesting, counting atoms and variables as depth zero and each compound
+layer as one; the default is zero for backwards-compatible function-free
+grounding. Fixed source structures deeper than the bound are errors with their
+source location, while substitutions that would produce deeper atoms are
+excluded. The Herbrand-base limit remains a separate cap on represented atoms.
+This is a finite syntactic term universe, not unrestricted Prolog term
+evaluation.
+
 ## Unsupported terms
 
-Nested compound and list arguments are rejected rather than partially
-grounded. The v1 brief allows those terms only with a configured depth/length
-bound, and no such bound is implemented yet.
+Terms outside the configured depth and unsupported built-ins are rejected
+rather than partially grounded.
 
 Supported arithmetic expressions are limited to integer literals, variables,
 and `+`, `-`, `*`, `//`, `mod`, and `rem`. Other expression shapes are rejected
