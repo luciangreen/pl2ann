@@ -36,6 +36,15 @@ test(sigmoid_matches_step_on_examples, [forall(member(Name, [ancestor, reach, ev
     prolog2ann_runtime:run_network_term(Sigmoid, SigmoidModel, _, true),
     assertion(StepModel == SigmoidModel).
 
+test(tanh_matches_step_on_examples, [forall(member(Name, [ancestor, reach, even_odd, xor, flies]))]) :-
+    test_prolog2ann:example(Name, File),
+    example_domain(Name, Options0),
+    prolog2ann:convert_file(File, [mode(step)|Options0], Step),
+    prolog2ann:convert_file(File, [mode(tanh), weight(0.1)|Options0], Tanh),
+    prolog2ann_runtime:run_network_term(Step, StepModel, _, true),
+    prolog2ann_runtime:run_network_term(Tanh, TanhModel, _, true),
+    assertion(StepModel == TanhModel).
+
 test(sigmoid_weight_below_bound_rejected) :-
     prolog2ann:convert_clauses([p(a)], [], Step),
     prolog2ann_train:sigmoid_min_weight(Step, Min),
@@ -44,6 +53,36 @@ test(sigmoid_weight_below_bound_rejected) :-
           error(weight_below_bound(_, _), _), true),
     prolog2ann:convert_clauses([p(a)], [mode(sigmoid), weight(Min)], Net),
     assertion(Net = network(_, _, _, _, _, _, _)).
+
+test(tanh_rejects_nonpositive_weight) :-
+    catch(prolog2ann:convert_clauses([p(a)], [mode(tanh), weight(0)], _),
+          Error, true),
+    assertion(Error = error(domain_error(positive_weight, 0), _)).
+
+test(tanh_module_and_json_report_mode) :-
+    test_prolog2ann:example(flies, File),
+    tmp_file(prolog2ann_tanh_module, Base),
+    atom_concat(Base, '.pl', NetworkFile),
+    atom_concat(Base, '.json', JsonFile),
+    setup_call_cleanup(
+        true,
+        ( prolog2ann:convert_file(File,
+                                 [mode(tanh), out(NetworkFile),
+                                  module(test_tanh_generated), json(JsonFile)],
+                                 _),
+          load_files(NetworkFile, []),
+          assertion(test_tanh_generated:network_meta(mode(tanh))),
+          test_tanh_generated:ann_query(flies(tweety), true),
+          setup_call_cleanup(
+              open(JsonFile, read, Stream),
+              json_read_dict(Stream, Json),
+              close(Stream)),
+          assertion(Json.mode == "tanh")
+        ),
+        ( unload_file(NetworkFile),
+          delete_file(NetworkFile),
+          delete_file(JsonFile)
+        )).
 
 test(sigmoid_module_emits_and_queries) :-
     tmp_file(prolog2ann_sigmoid, Base),

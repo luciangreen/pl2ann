@@ -23,9 +23,9 @@
 
 %! convert_file(+Source, +Options, -Network) is det.
 %
-% Convert a finite-domain Prolog file to a step- or sigmoid-mode network. Options may
+% Convert a finite-domain Prolog file to a step-, sigmoid-, or tanh-mode network. Options may
 % contain domain(File), out(File), json(File), module(Name),
-% mode(step|sigmoid), weight(auto|W), limit(MaxAtoms), and
+% mode(step|sigmoid|tanh), weight(auto|W), limit(MaxAtoms), and
 % step_limit(MaxRounds).
 convert_file(Source, Options, Network) :-
     option_value(mode, Options, step, Mode),
@@ -72,7 +72,8 @@ ann_extract(Network, Clauses) :-
 %! convert_clauses(+Clauses, +Options, -Network) is det.
 %
 % Convert in-memory facts and rules using the same finite-domain pipeline.
-% Options may contain domain_values(Values), mode(step), and limit(MaxAtoms).
+% Options may contain domain_values(Values), mode(step|sigmoid|tanh),
+% weight(auto|W), and limit(MaxAtoms).
 convert_clauses(Clauses, Options, Network) :-
     maplist(as_parsed_clause, Clauses, Parsed),
     normalise(Parsed, Normalised),
@@ -85,7 +86,7 @@ convert_clauses(Clauses, Options, Network) :-
     apply_mode(Mode, Options, Network0, Network).
 
 check_mode(Mode) :-
-    (   memberchk(Mode, [step, sigmoid]) -> true
+    (   memberchk(Mode, [step, sigmoid, tanh]) -> true
     ;   throw(error(unsupported_mode(Mode), _))
     ).
 
@@ -97,6 +98,9 @@ apply_mode(step, _, Network, Network).
 apply_mode(sigmoid, Options, Network0, Network) :-
     option_value(weight, Options, auto, Weight),
     sigmoid_network(Network0, Weight, Network).
+apply_mode(tanh, Options, Network0, Network) :-
+    option_value(weight, Options, auto, Weight),
+    tanh_network(Network0, Weight, Network).
 
 %! ann_verify(+Source, +Network, -Result) is det.
 %

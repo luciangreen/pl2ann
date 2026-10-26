@@ -53,7 +53,8 @@ run_network(Module, Atoms, Steps, Reached) :-
 %! run_network_term(+Network, -Atoms, -Steps, -ReachedFixpoint) is det.
 %
 % Evaluate an in-memory network/7 term (step or sigmoid mode) as run_network/4
-% does for a generated module. Sigmoid neurons are read out at 0.5.
+% does for a generated module. Sigmoid neurons are read out at 0.5 and bipolar
+% tanh neurons at zero.
 run_network_term(network(Base0, Rules, Strata0, _, Neurons, Edges, Recurrent),
                  Atoms, Steps, Reached) :-
     sort(Base0, Base),
@@ -158,7 +159,7 @@ rule_head(Module, Stratum, Head) :-
 fired_hidden(Neurons, Edges, Recurrent, Current, Hidden) :-
     findall(Id,
             ( member(neuron(hidden(Id), hidden, Activation, Threshold), Neurons),
-              memberchk(Activation, [step, sigmoid]),
+              memberchk(Activation, [step, sigmoid, tanh]),
               weighted_input_sum(hidden(Id), Edges, Recurrent, Current, Sum),
               Sum > Threshold
             ),
@@ -181,7 +182,7 @@ weighted_input_sum(Neuron, Edges, Recurrent, Current, Sum) :-
 % Evaluate an output neuron's weighted incoming hidden activations.
 output_fires(Atom, Neurons, Edges, Hidden) :-
     memberchk(neuron(out(Atom), output, Activation, Threshold), Neurons),
-    memberchk(Activation, [step, sigmoid]),
+    memberchk(Activation, [step, sigmoid, tanh]),
     findall(Weight,
             ( member(edge(hidden(Id), out(Atom), Weight), Edges),
               memberchk(Id, Hidden)

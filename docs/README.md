@@ -80,7 +80,12 @@ within its limit, `ann_run/3` returns `Reached = false` and query predicates
 raise `error(no_fixpoint(Steps), _)`.
 
 The CLI also supports `--module NAME` to choose the generated module name.
-`convert` supports only `--mode step`; other modes are rejected.
+`convert` accepts `--mode step`, `--mode sigmoid`, or `--mode tanh`. For the
+sigmoid mode, `--weight auto` chooses the documented fan-in-dependent bound;
+an explicit weight below the bound is rejected. Tanh mode uses bipolar
+activations (`tanh(sum - threshold)`) and reads outputs as active when their
+activation is above zero. Its weight defaults to `1.0`; any explicit weight
+must be positive. Tanh mode preserves the step network's Boolean fixpoint.
 
 For an independent installation of an emitted module, install `prolog2ann` as
 a SWI-Prolog pack or include the package's `prolog/` directory on SWI-Prolog's
@@ -107,14 +112,14 @@ whether every stratum reached a fixpoint.
   `domain(Type, [constant, ...]).`; all declared values currently share one
   global grounding universe.
 - A configurable maximum Herbrand-base size (default 10,000).
-- A step-mode Prolog network with ground queries, pattern queries, and
-  fixpoint step reporting, evaluated from its weighted neuron, edge, and
-  recurrent-link facts. The default per-stratum limit is base size + 1;
+- Step, sigmoid, and bipolar tanh Prolog networks with ground queries, pattern
+  queries, and fixpoint step reporting, evaluated from their weighted neuron,
+  edge, and recurrent-link facts. The default per-stratum limit is base size + 1;
   unsuccessful query runs raise `error(no_fixpoint(Steps), _)`.
 - Inspectable input, hidden, and output neuron facts, weighted edges,
   recurrent links, and source traces mapping input/output neurons to clauses
   mentioning their atoms and hidden neurons to their originating clauses;
-  optional JSON export of this current step-mode representation.
+  optional JSON export of the selected mode.
 - Source locations on parse-time unsupported-construct errors.
 - Source-equivalence verification for a `network/7` term or a loaded generated
   module, returning `equivalent` or `mismatch(Missing, Unexpected)`.
@@ -130,8 +135,7 @@ whether every stratum reached a fixpoint.
 `--limit N` is a separate conversion-time cap on the grounded Herbrand base
 (default 10,000); it is not a runtime step limit. The CLI supports:
 
-- `convert SOURCE [--domain FILE] [--mode step] [--limit N] [--step-limit N]`
-  `--out FILE [--module NAME] [--json FILE]`
+- `convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N] --out FILE [--module NAME] [--json FILE]`
 - `query NETWORK.pl "ground_goal"`
 - `verify SOURCE NETWORK.pl`
 
@@ -139,8 +143,8 @@ The `--json FILE` option writes a JSON object containing `mode`, `atoms`,
 `neurons` (IDs, layers, activations, and thresholds), `edges` (source, target,
 and weight), `recurrent` links, and source `traces`. The library also exports
 `ann_export_json(+File, +Network)` for exporting a network returned by
-`convert_file/3` or `convert_clauses/3`. JSON describes the step- or
-sigmoid-mode network (`mode` field).
+`convert_file/3` or `convert_clauses/3`. JSON describes the selected network
+mode (`step`, `sigmoid`, or `tanh`).
 
 For example, exporting the network for the single fact `p(a).` produces this
 shape:
@@ -192,10 +196,11 @@ accepts a loaded generated step-mode module.
 The library module exports `convert_file/3`, `convert_clauses/3`,
 `ann_verify/3`, `ann_export_json/2`, and `ann_extract/2`. `convert_file/3`
 accepts `domain(File)`, `out(File)`, `json(File)`, `module(Name)`,
-`mode(step)`, `limit(MaxAtoms)`, and `step_limit(MaxRounds)`.
-`convert_clauses/3` accepts `domain_values(Values)`, `mode(step)`, and
-`limit(MaxAtoms)`. The limits must be positive integers. Generated modules
-provide their own `ann_query/2`, `ann_query_all/2`, and `ann_run/3` predicates;
+`mode(step|sigmoid|tanh)`, `weight(auto|W)`, `limit(MaxAtoms)`, and `step_limit(MaxRounds)`.
+`convert_clauses/3` accepts `domain_values(Values)`,
+`mode(step|sigmoid|tanh)`, `weight(auto|W)`, and `limit(MaxAtoms)`. The limits
+must be positive integers. Generated modules provide their own `ann_query/2`,
+`ann_query_all/2`, and `ann_run/3` predicates;
 these query APIs are not exported from the converter library module.
 
 Example bounded input:
@@ -217,22 +222,24 @@ values from `domain/2` and `range/3`; type labels are not used to constrain
 individual variables or predicate positions. Arithmetic syntax outside the
 supported integer-expression operators is rejected during parsing. Nested
 compound/list terms, cut, dynamic database operations, I/O,
-`findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Step and sigmoid modes are implemented. The runtime
-evaluates the emitted step-mode weights and thresholds; symbolic ground rules
-remain in the module for stratum metadata, verification, and extraction.
+`findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Step,
+sigmoid, and bipolar tanh modes are implemented. The runtime evaluates the
+emitted weighted neuron facts; symbolic ground rules remain in the module for
+stratum metadata, verification, and extraction.
 
 Trace facts cover input and output neurons for each ground clause in which their
 atom appears, and hidden neurons for their corresponding ground clause. Clause
 IDs identify the clauses in the grounded network, not original variable-bearing
-source clauses. `ann_extract/2` and JSON export are implemented for the current
-step-mode schema; extraction returns represented ground rules, not original
-source text. Sigmoid mode and training are implemented; `tanh` and a verified CILP weight
-bound are not. Verification covers least-model agreement
+source clauses. `ann_extract/2` and JSON export are implemented for the current network schema;
+extraction returns represented ground rules, not original source text. Sigmoid
+training is implemented for per-ground-clause weights, and tanh execution is
+implemented but is not trainable. The sigmoid weight bound is derived and has
+not been verified against the cited CILP paper. Verification covers least-model agreement
 only for programs in the supported finite-domain subset.
 Consult
 [`STATUS.md`](STATUS.md) for the requirement-by-requirement list.
 
-## Sigmoid mode and training
+## Sigmoid and tanh modes; training
 
 ```sh
 swipl bin/prolog2ann.pl convert examples/flies.pl --mode sigmoid --weight auto \
@@ -240,10 +247,26 @@ swipl bin/prolog2ann.pl convert examples/flies.pl --mode sigmoid --weight auto \
 swipl bin/prolog2ann.pl query build/net_flies.pl "flies(tweety)"
 ```
 
+To run the same example with bipolar tanh activation:
+
+```sh
+swipl bin/prolog2ann.pl convert examples/flies.pl --mode tanh \
+  --out build/net_flies_tanh.pl --module net_flies_tanh \
+  --json build/net_flies_tanh.json
+swipl bin/prolog2ann.pl query build/net_flies_tanh.pl "flies(tweety)"
+swipl bin/prolog2ann.pl verify examples/flies.pl build/net_flies_tanh.pl
+```
+
+The emitted module reports `network_meta(mode(tanh))`, and JSON export sets
+`"mode": "tanh"`.
+
 In Prolog: `ann_train(Network, [flies(pingu)-false, ...], Trained)` (options
 `epochs(N)`, `rate(R)` via `ann_train/4`) and `ann_save(Trained, File)`. Sigmoid
 outputs are thresholded at 0.5 and agree with step mode. See `DECISIONS.md` for
 the weight bound and training limits.
+
+The default tanh scale is `1.0`; a positive `--weight W` can select another
+scale. Both training and `ann_agreement/3` support sigmoid mode only.
 
 ## Tests
 
@@ -286,6 +309,7 @@ implemented features to the checks run by the command above:
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |
 | Verification, extraction, and broad equivalence | `verify_equivalent_emitted_network`, `verify_reports_model_difference`, `extract_round_trip_ancestor`, `extract_round_trip_stratified_negation`, `extract_from_generated_module`, `acceptance_examples_verify_least_models`, `randomized_programs_verify_least_models` |
+| Sigmoid training and continuous activations | `sigmoid_matches_step_on_examples`, `sigmoid_module_emits_and_queries`, `sigmoid_training_repairs_corrupted_weight`, `tanh_matches_step_on_examples`, `tanh_module_and_json_report_mode`, `tanh_rejects_nonpositive_weight` |
 
 The GitHub Actions workflow runs this same PlUnit command on Ubuntu after
 installing the available SWI-Prolog package. You can run the suite locally with
