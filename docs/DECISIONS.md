@@ -1,12 +1,19 @@
 # Design decisions
 
-## Current finite universe
+## Finite and typed domains
 
-All variables are grounded over the sorted union of atomic constants found in
-the source and values declared with `domain/2` or `range/3`. The `Type` and
-`Name` arguments are retained as declaration labels but are not associated
-with predicate positions yet. This is the simplest deterministic finite
-universe until typed-domain inference is specified.
+`domain(Type, Values)` and `range(Type, Low, High)` declarations name value
+sets. The domain file associates a type with predicate argument positions
+using `type(Predicate/Arity, Position, Type)`. Variables collect constraints
+from all their occurrences in a clause and use the intersection of those
+domains; untyped variables use the sorted global union of source constants and
+domain values. This explicit mapping avoids inferring types from predicate
+names or data.
+
+Facts and other source terms already ground remain in the network even when
+their constants are outside a declared argument type. The type restriction
+applies to variable assignments, not to validation or filtering of source
+facts.
 
 ## Unsupported terms
 
@@ -21,10 +28,10 @@ grounding assignment.
 
 ## Verification universe
 
-`ann_verify/3` does not take a domain file. It derives values from the network's
-ground atom base and combines them with constants in the source before
-grounding. This checks the source against the exact finite base represented by
-the generated network without requiring the original domain file.
+`ann_verify/3` derives values from the network's ground atom base and combines
+them with constants in the source before grounding. Type-directed verification
+uses `ann_verify/4` with the original `domain(File)` option; the CLI exposes the
+same option as `verify SOURCE NETWORK.pl --domain FILE`.
 
 ## Sigmoid weight bound
 

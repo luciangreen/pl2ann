@@ -6,7 +6,7 @@ current tests does not mean all acceptance requirements are complete.
 
 | Requirement | Status |
 | --- | --- |
-| FR-1 | Partial — source and optional `domain/2`/`range/3` files are accepted, but all values share one grounding universe |
+| FR-1 | Implemented — `domain/2` and `range/3` define named sets, and `type(Predicate/Arity, Position, Type)` constrains variables at predicate positions; untyped variables use the global universe |
 | FR-2 | Partial — unsupported constructs are rejected with source locations; bounded lists/compound terms are not supported |
 | FR-3 | Implemented — negative dependency cycles report predicate indicators |
 | FR-4 | Implemented — grounded atom limit defaults to 10,000 and is configurable |
@@ -22,17 +22,15 @@ current tests does not mean all acceptance requirements are complete.
 
 ## Remaining work
 
-1. Implement type-aware variable domains and range/binding semantics; currently
-   all declared/source constants are combined into one universe.
-2. Add bounded list and compound-term grounding, and finish diagnostics for all
+1. Add bounded list and compound-term grounding, and finish diagnostics for all
    unsupported syntax.
-3. Verify the sigmoid weight bound against the cited CILP paper. The current
+2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
-4. Complete the training acceptance criterion for held-out examples and
+3. Complete the training acceptance criterion for held-out examples and
    cross-instance generalisation. Current training updates individual grounded
    clause weights.
-5. Finish release readiness: publish/installable pack versioning and archive
+4. Finish release readiness: publish/installable pack versioning and archive
    packaging. Generated output is now checked for byte-for-byte determinism,
    and a fresh-process smoke test verifies it runs without the source file
    when the runtime library is available.
@@ -54,8 +52,14 @@ swipl bin/prolog2ann.pl convert examples/ancestor.pl \
   --out build/net_ancestor.pl --module net_ancestor \
   --json build/net_ancestor.json
 swipl bin/prolog2ann.pl query build/net_ancestor.pl "ancestor(ann, dee)"
-swipl bin/prolog2ann.pl verify examples/ancestor.pl build/net_ancestor.pl
+swipl bin/prolog2ann.pl verify examples/ancestor.pl build/net_ancestor.pl \
+  --domain examples/ancestor_domain.pl
 ```
+
+`--domain FILE` may also be supplied to `verify` when conversion used
+type-directed domains. The domain file supports declarations such as
+`type(parent/2, 1, person).`; see [`README.md`](README.md#typed-finite-domains)
+for the syntax and semantics.
 
 For another supported activation, repeat conversion with
 `--mode sigmoid --weight auto` or `--mode tanh`; sigmoid rejects a supplied
@@ -70,5 +74,5 @@ verification, deterministic module output, fresh-process module loading, and
 
 The acceptance cases in `pr1.txt` that are not represented by the current
 supported subset must not be considered complete merely because this suite
-passes. In particular, typed domains, bounded compound terms, the cited
-sigmoid-bound proof, and held-out training generalisation remain open.
+passes. Bounded compound terms, the cited sigmoid-bound proof, held-out
+training generalisation, and release packaging remain open.
