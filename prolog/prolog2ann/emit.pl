@@ -33,7 +33,11 @@ emit_terms(Stream, Module, Atoms, Rules, Strata, Traces,
            ':- module(~q, [ann_query/2, ann_query_all/2, ann_run/3, neuron/4, edge/3, recurrent/2, trace/4]).~n',
            [Module]),
     format(Stream, ':- use_module(library(prolog2ann/runtime)).~n~n', []),
-    format(Stream, 'network_meta(mode(step)).~n', []),
+    (   memberchk(neuron(_, output, sigmoid, _), Neurons)
+    ->  Mode = sigmoid
+    ;   Mode = step
+    ),
+    format(Stream, 'network_meta(mode(~w)).~n', [Mode]),
     emit_step_limit(Stream, StepLimit),
     maplist(emit_atom(Stream), Atoms),
     maplist(emit_rule(Stream), Rules),

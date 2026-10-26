@@ -16,7 +16,7 @@ run([convert, Source|Arguments]) :-
     parse_options(Arguments, Options),
     prolog2ann:convert_file(Source, Options, network(Atoms, _, _, _, _, _, _)),
     length(Atoms, Size),
-    format('Converted ~w atoms to step-mode network (~d atoms).~n', [Source, Size]).
+    format('Converted ~w atoms to network (~d atoms).~n', [Source, Size]).
 run([query, NetworkFile, GoalText]) :-
     load_files(NetworkFile, []),
     network_module(NetworkFile, Module),
@@ -30,7 +30,7 @@ run([verify, Source, NetworkFile]) :-
     report_verification(Result).
 run(_) :-
     format(user_error,
-           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl~n',
+           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl~n',
            []),
     halt(2).
 
@@ -53,6 +53,13 @@ parse_options(['--module', Name|Rest], [module(Module)|Options]) :-
     !, text_atom(Name, Module), parse_options(Rest, Options).
 parse_options(['--mode', ModeString|Rest], [mode(Mode)|Options]) :-
     !, text_atom(ModeString, Mode), parse_options(Rest, Options).
+parse_options(['--weight', Text|Rest], [weight(Weight)|Options]) :-
+    !, text_atom(Text, Atom),
+    (   Atom == auto -> Weight = auto
+    ;   atom_number(Atom, Weight) -> true
+    ;   throw(error(type_error(weight, Atom), _))
+    ),
+    parse_options(Rest, Options).
 parse_options(['--limit', LimitString|Rest], [limit(Limit)|Options]) :-
     !, text_string(LimitString, LimitText), number_string(Limit, LimitText),
     parse_options(Rest, Options).
