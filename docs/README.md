@@ -95,6 +95,19 @@ library path. Generated modules export `ann_query/2`, `ann_query_all/2`, and
 standard order; `ann_run/3` returns the active atoms, number of rounds, and
 whether every stratum reached a fixpoint.
 
+To check an emitted module in a separate SWI-Prolog process without loading its
+source program, first run the ancestor quickstart above, then run:
+
+```sh
+swipl -q -p library="$PWD/prolog" \
+  -g "load_files('build/net_ancestor.pl', []), net_ancestor:ann_query(ancestor(ann, dee), true), halt"
+```
+
+The `-p` option points the fresh process to this checkout's runtime library.
+For a pack installation, install the `prolog2ann` pack and omit `-p`; the
+pack is not published as a release yet. The suite also checks that two
+conversions with identical inputs produce byte-identical generated modules.
+
 ## Supported behavior
 
 - Facts and definite clauses with variables ranging over a finite set of
@@ -308,6 +321,7 @@ implemented features to the checks run by the command above:
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |
+| Reproducible packaging and independent runtime loading | `generated_module_is_deterministic`, `generated_module_runs_in_fresh_process_without_source` |
 | Verification, extraction, and broad equivalence | `verify_equivalent_emitted_network`, `verify_reports_model_difference`, `extract_round_trip_ancestor`, `extract_round_trip_stratified_negation`, `extract_from_generated_module`, `acceptance_examples_verify_least_models`, `randomized_programs_verify_least_models` |
 | Sigmoid training and continuous activations | `sigmoid_matches_step_on_examples`, `sigmoid_module_emits_and_queries`, `sigmoid_training_repairs_corrupted_weight`, `tanh_matches_step_on_examples`, `tanh_module_and_json_report_mode`, `tanh_rejects_nonpositive_weight` |
 

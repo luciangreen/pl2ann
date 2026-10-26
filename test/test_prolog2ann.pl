@@ -11,14 +11,20 @@
 :- use_module(library(plunit)).
 :- use_module(library(http/json)).
 :- use_module(library(lists)).
+:- use_module(library(process)).
 :- use_module(library(random)).
+:- use_module(library(readutil)).
 
 :- dynamic examples_directory/1.
+:- dynamic prolog_directory/1.
 
 :- prolog_load_context(directory, TestDirectory),
    directory_file_path(TestDirectory, '../examples', ExamplesDirectory),
    absolute_file_name(ExamplesDirectory, AbsoluteExamples),
-   assertz(examples_directory(AbsoluteExamples)).
+   assertz(examples_directory(AbsoluteExamples)),
+   directory_file_path(TestDirectory, '../prolog', LibraryDirectory),
+   absolute_file_name(LibraryDirectory, AbsoluteLibrary),
+   assertz(prolog_directory(AbsoluteLibrary)).
 
 :- begin_tests(prolog2ann).
 
@@ -340,6 +346,47 @@ test(convert_file_creates_output) :-
         ),
         ( exists_file(Output) -> delete_file(Output) ; true )).
 
+test(generated_module_is_deterministic) :-
+    test_prolog2ann:example(ancestor, Source),
+    test_prolog2ann:example(ancestor_domain, Domain),
+    tmp_file(prolog2ann_first, First),
+    tmp_file(prolog2ann_second, Second),
+    setup_call_cleanup(
+        true,
+        ( Options = [domain(Domain), module(deterministic_ancestor)],
+          prolog2ann:convert_file(Source, [out(First)|Options], _),
+          prolog2ann:convert_file(Source, [out(Second)|Options], _),
+          read_file_to_string(First, FirstContent, []),
+          read_file_to_string(Second, SecondContent, []),
+          assertion(FirstContent == SecondContent)
+        ),
+        ( delete_if_exists(First),
+          delete_if_exists(Second)
+        )).
+
+test(generated_module_runs_in_fresh_process_without_source) :-
+    test_prolog2ann:example(ancestor, Source),
+    test_prolog2ann:example(ancestor_domain, Domain),
+    tmp_file(prolog2ann_standalone, NetworkFile),
+    setup_call_cleanup(
+        true,
+        ( prolog2ann:convert_file(
+              Source,
+              [domain(Domain), out(NetworkFile), module(standalone_ancestor)],
+              _),
+          test_prolog2ann:prolog_directory(LibraryDirectory),
+          atom_concat('library=', LibraryDirectory, LibraryOption),
+          format(atom(Goal),
+                 'load_files(~q, []), standalone_ancestor:ann_query(ancestor(ann, dee), true), halt(0)',
+                 [NetworkFile]),
+          process_create(path(swipl),
+                         ['-q', '-p', LibraryOption, '-g', Goal],
+                         [process(Process), stdout(null), stderr(null)]),
+          process_wait(Process, Exit),
+          assertion(Exit == exit(0))
+        ),
+        delete_if_exists(NetworkFile)).
+
 test(export_json_network_representation) :-
     prolog2ann:convert_clauses([p(a), (q(X) :- p(X))],
                                [domain_values([a])],
@@ -507,6 +554,9 @@ example_domain(_, []).
 example(Name, File) :-
     examples_directory(Examples),
     atomic_list_concat([Examples, '/', Name, '.pl'], File).
+
+delete_if_exists(File) :-
+    ( exists_file(File) -> delete_file(File) ; true ).
 
 verify_example(Name, DomainName) :-
     test_prolog2ann:example(Name, File),
