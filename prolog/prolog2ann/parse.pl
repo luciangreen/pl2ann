@@ -62,6 +62,10 @@ validate_goal((A ; B), File, Line) :-
     !,
     validate_goal(A, File, Line),
     validate_goal(B, File, Line).
+validate_goal(\+ in_domain(_, _), File, Line) :-
+    !,
+    throw(error(unsupported_construct(negated_domain_constraint),
+                file(File, Line))).
 validate_goal(\+ Goal, File, Line) :-
     (   Goal = (_, _)
     ;   Goal = (_ ; _)
@@ -125,6 +129,7 @@ supported_builtin((=\=), 2).
 supported_builtin((=), 2).
 supported_builtin((\=), 2).
 supported_builtin(is, 2).
+supported_builtin(in_domain, 2).
 
 %! validate_builtin_goal(+Goal, +File, +Line) is det.
 %
@@ -166,6 +171,9 @@ valid_builtin_goal(Goal) :-
     ;   Goal = (Left \= Right)
     ->  simple_argument(Left),
         simple_argument(Right)
+    ;   Goal = in_domain(Variable, Type)
+    ->  var(Variable),
+        atomic(Type)
     ;   memberchk(Goal, [true, fail, false])
     ).
 

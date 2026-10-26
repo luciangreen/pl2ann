@@ -196,6 +196,100 @@ test(finite_domain_required_for_variables) :-
     assertion(nonvar(Error)),
     assertion(Error = error(finite_domain_required, _)).
 
+test(explicit_named_domains_and_ranges) :-
+    tmp_file(prolog2ann_typed_source, Source),
+    tmp_file(prolog2ann_typed_domain, Domain),
+    setup_call_cleanup(
+        ( setup_call_cleanup(
+              open(Source, write, SourceStream),
+              write(SourceStream,
+                    'member(alice). member(paris). assigned(P, C) :- member(P), member(C), in_domain(P, person), in_domain(C, city). valid(N) :- in_domain(N, n), N < 3.'),
+              close(SourceStream)),
+          setup_call_cleanup(
+              open(Domain, write, DomainStream),
+              write(DomainStream,
+                    'domain(person, [alice, bob]). domain(city, [paris, rome]). range(n, 1, 4).'),
+              close(DomainStream))
+        ),
+        ( prolog2ann:convert_file(Source, [domain(Domain)], Network),
+          prolog2ann:ann_verify(Source, Domain, Network, equivalent),
+          test_prolog2ann:temporary_network(Network, Module, Path),
+          setup_call_cleanup(
+              true,
+              ( prolog2ann:ann_verify(Source, Domain, Module, equivalent),
+                prolog2ann_runtime:ann_query_all(
+                    Module, assigned(P, C), Assigned),
+                assertion(var(P)),
+                assertion(var(C)),
+                assertion(Assigned == [assigned(alice, paris)]),
+                prolog2ann_runtime:ann_query_all(Module, valid(N), Valid),
+                assertion(var(N)),
+                assertion(Valid == [valid(1), valid(2)])
+              ),
+              ( unload_file(Path), delete_file(Path) ))
+        ),
+        ( delete_file(Source), delete_file(Domain) )).
+
+test(explicit_named_domains_in_convert_clauses) :-
+    prolog2ann:convert_clauses(
+        [(assigned(P, C) :- in_domain(P, person), in_domain(C, city))],
+        [domains([domain(person, [alice, bob]),
+                  domain(city, [paris, rome])])],
+        Network),
+    test_prolog2ann:temporary_network(Network, Module, Path),
+    setup_call_cleanup(
+        true,
+        ( prolog2ann_runtime:ann_query_all(
+              Module, assigned(P, C), Solutions),
+          assertion(var(P)),
+          assertion(var(C)),
+          assertion(Solutions ==
+                    [assigned(alice, paris), assigned(alice, rome),
+                     assigned(bob, paris), assigned(bob, rome)])
+        ),
+        ( unload_file(Path), delete_file(Path) )).
+
+test(empty_named_domain_is_a_finite_domain, [nondet]) :-
+    prolog2ann:convert_clauses(
+        [(p(X) :- in_domain(X, empty))],
+        [domains([domain(empty, [])])],
+        network(Atoms, Rules, _, _, _, _, _)),
+    assertion(Atoms == []),
+    assertion(Rules == []).
+
+test(reject_negated_named_domain_constraint) :-
+    tmp_file(prolog2ann_typed_source, Source),
+    setup_call_cleanup(
+        setup_call_cleanup(
+            open(Source, write, Stream),
+            write(Stream, 'p(X) :- \\+ in_domain(X, person).'),
+            close(Stream)),
+        ( catch(prolog2ann_parse:parse_file(Source, _), Error, true),
+          assertion(Error =
+                    error(unsupported_construct(negated_domain_constraint),
+                          file(Source, 1)))
+        ),
+        delete_file(Source)).
+
+test(explicit_named_domain_rejects_unknown_type) :-
+    tmp_file(prolog2ann_typed_source, Source),
+    tmp_file(prolog2ann_typed_domain, Domain),
+    setup_call_cleanup(
+        ( setup_call_cleanup(
+              open(Source, write, SourceStream),
+              write(SourceStream, 'p(X) :- in_domain(X, missing).'),
+              close(SourceStream)),
+          setup_call_cleanup(
+              open(Domain, write, DomainStream),
+              write(DomainStream, 'domain(person, [alice]).'),
+              close(DomainStream))
+        ),
+        ( catch(prolog2ann:convert_file(Source, [domain(Domain)], _),
+                Error, true),
+          assertion(Error = error(existence_error(domain_type, missing), _))
+        ),
+        ( delete_file(Source), delete_file(Domain) )).
+
 test(translation_includes_weighted_neurons) :-
     prolog2ann:convert_clauses([p(a), (q(X) :- p(X))],
                                [domain_values([a])],

@@ -6,7 +6,7 @@ current tests does not mean all acceptance requirements are complete.
 
 | Requirement | Status |
 | --- | --- |
-| FR-1 | Partial — source and optional `domain/2`/`range/3` files are accepted, but all values share one grounding universe |
+| FR-1 | Partial — source and optional `domain/2`/`range/3` files are accepted; `in_domain/2` constrains named variables, while unannotated variables still use the global universe |
 | FR-2 | Partial — unsupported constructs are rejected with source locations; bounded lists/compound terms are not supported |
 | FR-3 | Implemented — negative dependency cycles report predicate indicators |
 | FR-4 | Implemented — grounded atom limit defaults to 10,000 and is configurable |
@@ -22,17 +22,15 @@ current tests does not mean all acceptance requirements are complete.
 
 ## Remaining work
 
-1. Implement type-aware variable domains and range/binding semantics; currently
-   all declared/source constants are combined into one universe.
-2. Add bounded list and compound-term grounding, and finish diagnostics for all
+1. Add bounded list and compound-term grounding, and finish diagnostics for all
    unsupported syntax.
-3. Verify the sigmoid weight bound against the cited CILP paper. The current
+2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
-4. Complete the training acceptance criterion for held-out examples and
+3. Complete the training acceptance criterion for held-out examples and
    cross-instance generalisation. Current training updates individual grounded
    clause weights.
-5. Finish release readiness: pack/version metadata, deterministic packaging,
+4. Finish release readiness: pack/version metadata, deterministic packaging,
    and end-to-end checks for an independently installed generated module.
 
 ## Tests and examples
@@ -55,6 +53,8 @@ swipl bin/prolog2ann.pl query build/net_ancestor.pl "ancestor(ann, dee)"
 swipl bin/prolog2ann.pl verify examples/ancestor.pl build/net_ancestor.pl
 ```
 
+When source rules use `in_domain/2`, pass the same domain file to verification
+with `swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl --domain DOMAIN.pl`.
 For another supported activation, repeat conversion with
 `--mode sigmoid --weight auto` or `--mode tanh`; sigmoid rejects a supplied
 weight below its current derived bound, while tanh accepts any positive
@@ -67,5 +67,6 @@ verification, and 200 deterministic randomized equivalence cases. See
 
 The acceptance cases in `pr1.txt` that are not represented by the current
 supported subset must not be considered complete merely because this suite
-passes. In particular, typed domains, bounded compound terms, the cited
-sigmoid-bound proof, and held-out training generalisation remain open.
+passes. In particular, automatic type inference (variables need explicit
+`in_domain/2` constraints), bounded compound terms, the cited sigmoid-bound
+proof, and held-out training generalisation remain open.

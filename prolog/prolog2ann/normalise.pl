@@ -70,6 +70,7 @@ builtin_literal(_ =\= _).
 builtin_literal(_ = _).
 builtin_literal(_ \= _).
 builtin_literal(_ is _).
+builtin_literal(in_domain(_, _)).
 
 %! attach_stratum(+Strata, +NormalClause, -GroundClause) is det.
 %

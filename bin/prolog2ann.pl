@@ -23,14 +23,18 @@ run([query, NetworkFile, GoalText]) :-
     read_term_from_atom(GoalText, Goal, []),
     Module:ann_query(Goal, Truth),
     format('~q: ~q~n', [Goal, Truth]).
-run([verify, Source, NetworkFile]) :-
+run([verify, Source, NetworkFile|Arguments]) :-
+    parse_options(Arguments, Options),
     load_files(NetworkFile, []),
     network_module(NetworkFile, Module),
-    prolog2ann:ann_verify(Source, Module, Result),
+    (   memberchk(domain(DomainFile), Options)
+    ->  prolog2ann:ann_verify(Source, DomainFile, Module, Result)
+    ;   prolog2ann:ann_verify(Source, Module, Result)
+    ),
     report_verification(Result).
 run(_) :-
     format(user_error,
-           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl~n',
+           'Usage: swipl bin/prolog2ann.pl convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N|--steps N] --out FILE [--json FILE]~n       swipl bin/prolog2ann.pl query NETWORK.pl \"ground_atom\"~n       swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl [--domain FILE]~n',
            []),
     halt(2).
 

@@ -2,6 +2,7 @@
           [ convert_file/3,
             convert_clauses/3,
             ann_verify/3,
+          ann_verify/4,
             ann_export_json/2,
             ann_extract/2,
             ann_train/3,
@@ -40,8 +41,9 @@ convert_file(Source, Options, Network) :-
     option_value(domain, Options, none, DomainFile),
     parse_file(Source, Parsed),
     normalise(Parsed, Normalised),
-    domain_values(DomainFile, DomainValues),
-    ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
+    domain_data(DomainFile, DomainValues, TypeDomains),
+    ground_program(Normalised, DomainValues, TypeDomains,
+                   Ground, Limit, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network),
     (   option_value(out, Options, none, Output),
@@ -72,7 +74,8 @@ ann_extract(Network, Clauses) :-
 %! convert_clauses(+Clauses, +Options, -Network) is det.
 %
 % Convert in-memory facts and rules using the same finite-domain pipeline.
-% Options may contain domain_values(Values), mode(step|sigmoid|tanh),
+% Options may contain domain_values(Values), domains(Declarations),
+% mode(step|sigmoid|tanh),
 % weight(auto|W), and limit(MaxAtoms).
 convert_clauses(Clauses, Options, Network) :-
     maplist(as_parsed_clause, Clauses, Parsed),
@@ -80,8 +83,12 @@ convert_clauses(Clauses, Options, Network) :-
     option_value(mode, Options, step, Mode),
     check_mode(Mode),
     option_value(domain_values, Options, [], DomainValues),
+    option_value(domains, Options, [], DomainDeclarations),
+    domain_declarations(DomainDeclarations, DeclaredValues, TypeDomains),
+    append(DomainValues, DeclaredValues, AllDomainValues),
     option_value(limit, Options, 10000, Limit),
-    ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
+    ground_program(Normalised, AllDomainValues, TypeDomains,
+                   Ground, Limit, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network).
 
@@ -110,9 +117,26 @@ apply_mode(tanh, Options, Network0, Network) :-
 ann_verify(Source, Network, Result) :-
     network_contents(Network, Atoms, NetworkRules, NetworkStrata, Module),
     network_domain_values(Atoms, DomainValues),
+    verify_source(Source, DomainValues, [], Module,
+                  NetworkRules, NetworkStrata, Result).
+
+%! ann_verify(+Source, +DomainFile, +Network, -Result) is det.
+%
+% Verify a network against source clauses grounded with the given domain file.
+ann_verify(Source, DomainFile, Network, Result) :-
+    network_contents(Network, Atoms, NetworkRules, NetworkStrata, Module),
+    network_domain_values(Atoms, NetworkValues),
+    read_domain(DomainFile, DeclaredValues, TypeDomains),
+    append(NetworkValues, DeclaredValues, DomainValues),
+    verify_source(Source, DomainValues, TypeDomains, Module,
+                  NetworkRules, NetworkStrata, Result).
+
+verify_source(Source, DomainValues, TypeDomains, Module,
+              NetworkRules, NetworkStrata, Result) :-
     parse_file(Source, Parsed),
     normalise(Parsed, Normalised),
-    ground_program(Normalised, DomainValues, Ground, 10000, _),
+    ground_program(Normalised, DomainValues, TypeDomains,
+                   Ground, 10000, _),
     source_rules(Ground, SourceRules, SourceStrata),
     least_model(SourceRules, SourceStrata, Expected),
     network_model(Module, NetworkRules, NetworkStrata, Actual),
@@ -236,12 +260,9 @@ all_absent([Atom|Rest], Atoms) :-
     \+ memberchk(Atom, Atoms),
     all_absent(Rest, Atoms).
 
-%! domain_values(+DomainFile, -Values) is det.
-%
-% Read finite domain values, or return an empty list when no file was supplied.
-domain_values(none, []) :- !.
-domain_values(File, Values) :-
-    read_domain(File, Values).
+domain_data(none, [], []) :- !.
+domain_data(File, Values, TypeDomains) :-
+    read_domain(File, Values, TypeDomains).
 
 %! as_parsed_clause(+Clause, -ParsedClause) is det.
 %

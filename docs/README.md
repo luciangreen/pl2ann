@@ -23,6 +23,13 @@ atoms missing from the network and unexpected network atoms, and exits with
 status 1. The generated module uses the packaged `prolog2ann/runtime` library,
 but does not load or need the source program.
 
+When the source uses `in_domain/2`, supply its domain file during verification
+so the source is grounded with the same named values:
+
+```sh
+swipl bin/prolog2ann.pl verify SOURCE NETWORK.pl --domain DOMAIN.pl
+```
+
 The XOR acceptance example exercises finite grounding, equality, stratified
 negation, pattern queries, and source/network verification:
 
@@ -137,7 +144,7 @@ whether every stratum reached a fixpoint.
 
 - `convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N] --out FILE [--module NAME] [--json FILE]`
 - `query NETWORK.pl "ground_goal"`
-- `verify SOURCE NETWORK.pl`
+- `verify SOURCE NETWORK.pl [--domain FILE]`
 
 The `--json FILE` option writes a JSON object containing `mode`, `atoms`,
 `neurons` (IDs, layers, activations, and thresholds), `edges` (source, target,
@@ -177,14 +184,16 @@ weights, thresholds, clause IDs, and source lines are JSON numbers. A trace's
 `clause` identifies a grounded network clause (and the corresponding hidden
 neuron), not necessarily the original variable-bearing source clause.
 
-Verification uses the finite universe represented by the network's atom base,
-combined with constants in the source program. The library API does not accept
-a separate domain file for verification.
+`ann_verify/3` uses the finite universe represented by the network's atom base,
+combined with constants in the source program. For rules using `in_domain/2`,
+`ann_verify/4` and `verify ... --domain FILE` take the original domain file so
+verification applies the same named-domain restrictions as conversion.
 
 The generated module exports `ann_query/2`, `ann_query_all/2`, and
 `ann_run/3`, along with the inspectable neuron, edge, recurrent-link, and trace
 facts. The library entry point exports `convert_file/3`, `convert_clauses/3`,
-`ann_verify/3`, `ann_export_json/2`, and `ann_extract/2`.
+`ann_verify/3,4`, `ann_export_json/2`, `ann_extract/2`, `ann_train/3,4`, and
+`ann_save/2`.
 
 `ann_extract(Network, Clauses)` returns ground facts and rules. The extracted
 program preserves represented positive and stratified-negative rules, so it can
@@ -193,11 +202,13 @@ the original variables, clause order, comments, source locations, domain
 declarations, or source formatting. `ann_extract(GeneratedModule, Clauses)` also
 accepts a loaded generated step-mode module.
 
-The library module exports `convert_file/3`, `convert_clauses/3`,
-`ann_verify/3`, `ann_export_json/2`, and `ann_extract/2`. `convert_file/3`
-accepts `domain(File)`, `out(File)`, `json(File)`, `module(Name)`,
+Use `ann_verify(Source, DomainFile, Network, Result)` when named domains are
+needed;
+`ann_verify/3` remains convenient for untyped finite universes.
+`convert_file/3` accepts `domain(File)`, `out(File)`, `json(File)`, `module(Name)`,
 `mode(step|sigmoid|tanh)`, `weight(auto|W)`, `limit(MaxAtoms)`, and `step_limit(MaxRounds)`.
 `convert_clauses/3` accepts `domain_values(Values)`,
+`domains(Declarations)` (a list of `domain/2` and `range/3` terms),
 `mode(step|sigmoid|tanh)`, `weight(auto|W)`, and `limit(MaxAtoms)`. The limits
 must be positive integers. Generated modules provide their own `ann_query/2`,
 `ann_query_all/2`, and `ann_run/3` predicates;
@@ -207,21 +218,37 @@ Example bounded input:
 
 ```prolog
 domain(person, [ann, bob]).
+domain(city, [rome, paris]).
 range(n, 0, 4).
+
+eligible(Person, City) :-
+    resident(Person),
+    in_domain(Person, person),
+    in_domain(City, city).
+
+small(N) :-
+    in_domain(N, n),
+    N < 3.
 ```
 
-The domain file accepts `domain/2` and `range/3` facts. Variable types are not
-inferred from the type name yet: each variable ranges over the union of all
-domain and source constants.
+`domain/2` and `range/3` values keep their declaration names. A positive
+`in_domain(Variable, Type)` body constraint grounds that variable only over
+the named declaration; multiple constraints on one variable use the
+intersection of their values. `range/3` names work the same way as `domain/2`.
+The constraint must be positive; negated constraints are rejected. An
+undeclared type is an error. Variables without an explicit `in_domain/2`
+constraint retain the backward-compatible global universe of source and
+declared constants.
 
 ## Current limitations
 
 This is an in-progress subset of `pr1.txt`, not the v1 acceptance-complete
-converter. The current finite universe is the union of source constants and
-values from `domain/2` and `range/3`; type labels are not used to constrain
-individual variables or predicate positions. Arithmetic syntax outside the
-supported integer-expression operators is rejected during parsing. Nested
-compound/list terms, cut, dynamic database operations, I/O,
+converter. Variables with an explicit `in_domain/2` constraint use the named
+values from `domain/2` or `range/3`; variables without a constraint still use
+the global finite universe. Types are not inferred from predicate positions.
+Arithmetic syntax outside the supported integer-expression operators is
+rejected during parsing. Nested compound/list terms, cut, dynamic database
+operations, I/O,
 `findall`/`bagof`/`setof`, and unsupported system built-ins are rejected. Step,
 sigmoid, and bipolar tanh modes are implemented. The runtime evaluates the
 emitted weighted neuron facts; symbolic ground rules remain in the module for
@@ -304,7 +331,7 @@ implemented features to the checks run by the command above:
 | Feature area | Tests |
 | --- | --- |
 | Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
-| Finite grounding, integer domains, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons` |
+| Finite grounding, integer domains, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `explicit_named_domains_and_ranges`, `explicit_named_domains_in_convert_clauses`, `empty_named_domain_is_a_finite_domain`, `reject_negated_named_domain_constraint`, `explicit_named_domain_rejects_unknown_type` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |

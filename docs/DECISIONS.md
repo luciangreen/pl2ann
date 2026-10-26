@@ -2,11 +2,14 @@
 
 ## Current finite universe
 
-All variables are grounded over the sorted union of atomic constants found in
-the source and values declared with `domain/2` or `range/3`. The `Type` and
-`Name` arguments are retained as declaration labels but are not associated
-with predicate positions yet. This is the simplest deterministic finite
-universe until typed-domain inference is specified.
+Variables without an explicit type constraint are grounded over the sorted
+union of atomic constants found in the source and values declared with
+`domain/2` or `range/3`. Type labels are not inferred from predicate positions.
+This preserves the existing global-universe behavior for unannotated programs.
+
+Rules may opt a variable into a named finite domain with the positive body
+constraint `in_domain(Variable, Type)`. Constraints for the same variable are intersected, and an unknown type is an
+error. The converter does not infer types from predicate positions.
 
 ## Unsupported terms
 
@@ -21,10 +24,11 @@ grounding assignment.
 
 ## Verification universe
 
-`ann_verify/3` does not take a domain file. It derives values from the network's
-ground atom base and combines them with constants in the source before
-grounding. This checks the source against the exact finite base represented by
-the generated network without requiring the original domain file.
+`ann_verify/3` derives values from the network's ground atom base and combines
+them with source constants before grounding, which is sufficient for programs
+without named-domain constraints. `ann_verify/4` accepts the original domain
+file for programs using `in_domain/2`, because a network's atom base alone
+cannot recover type membership for unused declared values.
 
 ## Sigmoid weight bound
 
