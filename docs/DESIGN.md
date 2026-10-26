@@ -7,9 +7,9 @@ Conversion is currently split into independently loadable SWI-Prolog modules:
 2. `normalise.pl` expands disjunctions, separates positive, negative, and
    built-in literals, and checks the predicate dependency graph for
    stratification.
-3. `ground.pl` combines source constants with optional domain values, grounds
-   variables over the finite universe, evaluates supported comparisons and
-   arithmetic, and enforces the atom limit.
+3. `ground.pl` combines source constants with optional domain values, applies
+   explicit predicate-position type constraints to variables, evaluates
+   supported comparisons and arithmetic, and enforces the atom limit.
 4. `translate.pl` builds a deterministic network model from the ground
    clauses, including input/output/hidden neuron facts, weighted edges,
    recurrent links, and source trace facts.
@@ -23,6 +23,8 @@ representation. Symbolic ground rules remain in the emitted module to identify
 predicate strata and support verification and extraction. The output is
 independent of the source program but imports the generic runtime library.
 
-The current grounding universe is global rather than type-directed. A
-variable-free program can still be converted without a domain file; a program
-with variables needs source constants or explicit finite domain values.
+Typed variables use the intersection of named domain values associated with
+their predicate positions. Variables without a declared positional type use
+the global universe. A variable-free program can still be converted without a
+domain file; a program with variables needs source constants or explicit
+finite domain values.

@@ -2,6 +2,7 @@
           [ convert_file/3,
             convert_clauses/3,
             ann_verify/3,
+          ann_verify/4,
             ann_export_json/2,
             ann_extract/2,
             ann_train/3,
@@ -40,8 +41,9 @@ convert_file(Source, Options, Network) :-
     option_value(domain, Options, none, DomainFile),
     parse_file(Source, Parsed),
     normalise(Parsed, Normalised),
-    domain_values(DomainFile, DomainValues),
-    ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
+    domain_schema(DomainFile, DomainValues, TypeDomains, PositionTypes),
+    ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                         Ground, Limit, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network),
     (   option_value(out, Options, none, Output),
@@ -72,16 +74,20 @@ ann_extract(Network, Clauses) :-
 %! convert_clauses(+Clauses, +Options, -Network) is det.
 %
 % Convert in-memory facts and rules using the same finite-domain pipeline.
-% Options may contain domain_values(Values), mode(step|sigmoid|tanh),
-% weight(auto|W), and limit(MaxAtoms).
+% Options may contain domain_values(Values), domain_types(TypeDomains),
+% position_types(PositionTypes), mode(step|sigmoid|tanh), weight(auto|W),
+% and limit(MaxAtoms).
 convert_clauses(Clauses, Options, Network) :-
     maplist(as_parsed_clause, Clauses, Parsed),
     normalise(Parsed, Normalised),
     option_value(mode, Options, step, Mode),
     check_mode(Mode),
     option_value(domain_values, Options, [], DomainValues),
+    option_value(domain_types, Options, [], TypeDomains),
+    option_value(position_types, Options, [], PositionTypes),
     option_value(limit, Options, 10000, Limit),
-    ground_program(Normalised, DomainValues, Ground, Limit, Atoms),
+    ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                         Ground, Limit, Atoms),
     translate(Ground, Atoms, Network0),
     apply_mode(Mode, Options, Network0, Network).
 
@@ -108,11 +114,23 @@ apply_mode(tanh, Options, Network0, Network) :-
 % may be a network/7 term or the module name of a loaded generated network.
 % Result is equivalent or mismatch(Missing, Unexpected).
 ann_verify(Source, Network, Result) :-
+    ann_verify(Source, Network, [], Result).
+
+%! ann_verify(+Source, +Network, +Options, -Result) is det.
+%
+% As ann_verify/3, with optional domain(File) grounding declarations.
+ann_verify(Source, Network, Options, Result) :-
     network_contents(Network, Atoms, NetworkRules, NetworkStrata, Module),
-    network_domain_values(Atoms, DomainValues),
     parse_file(Source, Parsed),
     normalise(Parsed, Normalised),
-    ground_program(Normalised, DomainValues, Ground, 10000, _),
+    (   option_value(domain, Options, none, DomainFile),
+        DomainFile \== none
+    ->  domain_schema(DomainFile, DomainValues, TypeDomains, PositionTypes),
+        ground_program_typed(Normalised, DomainValues, TypeDomains,
+                             PositionTypes, Ground, 10000, _)
+    ;   network_domain_values(Atoms, DomainValues),
+        ground_program(Normalised, DomainValues, Ground, 10000, _)
+    ),
     source_rules(Ground, SourceRules, SourceStrata),
     least_model(SourceRules, SourceStrata, Expected),
     network_model(Module, NetworkRules, NetworkStrata, Actual),
@@ -236,12 +254,15 @@ all_absent([Atom|Rest], Atoms) :-
     \+ memberchk(Atom, Atoms),
     all_absent(Rest, Atoms).
 
-%! domain_values(+DomainFile, -Values) is det.
+%! domain_schema(+DomainFile, -Values, -TypeDomains, -PositionTypes) is det.
 %
-% Read finite domain values, or return an empty list when no file was supplied.
-domain_values(none, []) :- !.
-domain_values(File, Values) :-
-    read_domain(File, Values).
+% Read finite typed domains, or return empty schemas when no file was supplied.
+domain_schema(none, [], [], []) :- !.
+domain_schema(File, Values, TypeDomains, PositionTypes) :-
+    read_domain_schema(File, TypeDomains, PositionTypes),
+    findall(Domain, member(_-Domain, TypeDomains), Domains),
+    append(Domains, Values0),
+    sort(Values0, Values).
 
 %! as_parsed_clause(+Clause, -ParsedClause) is det.
 %

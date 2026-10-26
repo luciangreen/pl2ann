@@ -196,11 +196,40 @@ test(grounding_limit) :-
     assertion(Error = error(herbrand_base_limit(_, 1), _)).
 
 test(finite_domain_required_for_variables) :-
-    Parsed = [clause(p(X), true, [], sample, 1)],
+    Parsed = [clause(p(_X), true, [], sample, 1)],
     prolog2ann_normalise:normalise(Parsed, Normalised),
     catch(prolog2ann_ground:ground_program(Normalised, [], _, 10000, _), Error, true),
     assertion(nonvar(Error)),
     assertion(Error = error(finite_domain_required, _)).
+
+test(typed_domains_restrict_and_intersect_variables) :-
+    Clauses = [candidate(ann), candidate(bob), candidate(red),
+               allowed(bob), allowed(red),
+               numeric(0), numeric(1), numeric(2),
+               (chosen(X) :- candidate(X), allowed(X)),
+               (under_two(N) :- numeric(N), N < 2)],
+    tmp_file(prolog2ann_typed_source, Source),
+    tmp_file(prolog2ann_typed_domain, Domain),
+    setup_call_cleanup(
+        ( write_program(Source, Clauses),
+          write_typed_domain(Domain)
+        ),
+        ( prolog2ann:convert_file(Source, [domain(Domain)], Network),
+          prolog2ann:ann_verify(Source, Network, [domain(Domain)], equivalent),
+          test_prolog2ann:temporary_network(Network, Module, Path),
+          setup_call_cleanup(
+              true,
+              ( prolog2ann_runtime:ann_query(Module, chosen(bob), true),
+                prolog2ann_runtime:ann_query(Module, chosen(ann), false),
+                prolog2ann_runtime:ann_query(Module, chosen(red), false),
+                prolog2ann_runtime:ann_query(Module, under_two(1), true),
+                prolog2ann_runtime:ann_query(Module, under_two(2), false)
+              ),
+              ( unload_file(Path), delete_file(Path) ))
+        ),
+        ( delete_file(Source),
+          delete_file(Domain)
+        )).
 
 test(translation_includes_weighted_neurons) :-
     prolog2ann:convert_clauses([p(a), (q(X) :- p(X))],
@@ -483,7 +512,8 @@ test(verify_equivalent_emitted_network) :-
               [domain(Domain), out(Output), module(verified_ancestor)],
               _),
           load_files(Output, []),
-          prolog2ann:ann_verify(File, verified_ancestor, Result),
+          prolog2ann:ann_verify(File, verified_ancestor,
+                                [domain(Domain)], Result),
           assertion(Result == equivalent)
         ),
         ( unload_file(Output),
@@ -566,7 +596,10 @@ verify_example(Name, DomainName) :-
         Options = [domain(DomainFile)]
     ),
     prolog2ann:convert_file(File, Options, Network),
-    prolog2ann:ann_verify(File, Network, Result),
+    (   DomainName == none
+    ->  prolog2ann:ann_verify(File, Network, Result)
+    ;   prolog2ann:ann_verify(File, Network, [domain(DomainFile)], Result)
+    ),
     assertion(Result == equivalent).
 
 verify_random_program(Seed) :-
@@ -672,6 +705,18 @@ write_domain(File) :-
         open(File, write, Stream, [encoding(utf8)]),
         ( write(Stream, 'domain(constants, [a, b, c, d, e]).'),
           nl(Stream)
+        ),
+        close(Stream)).
+
+write_typed_domain(File) :-
+    setup_call_cleanup(
+        open(File, write, Stream, [encoding(utf8)]),
+        ( write(Stream, 'domain(person, [ann, bob]).'), nl(Stream),
+          write(Stream, 'domain(color, [bob, red]).'), nl(Stream),
+          write(Stream, 'range(n, 0, 2).'), nl(Stream),
+          write(Stream, 'type(candidate/1, 1, person).'), nl(Stream),
+          write(Stream, 'type(allowed/1, 1, color).'), nl(Stream),
+          write(Stream, 'type(numeric/1, 1, n).'), nl(Stream)
         ),
         close(Stream)).
 
