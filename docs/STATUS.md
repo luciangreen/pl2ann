@@ -11,7 +11,7 @@ current tests does not mean all acceptance requirements are complete.
 | FR-3 | Implemented — negative dependency cycles report predicate indicators |
 | FR-4 | Implemented — grounded atom limit defaults to 10,000 and is configurable |
 | FR-5 | Implemented — exact step, scaled sigmoid, and bipolar tanh modes |
-| FR-6 | Partial — emitted modules do not need the source file, but use the installed `prolog2ann/runtime` package |
+| FR-6 | Partial — generated modules run without source in a fresh process, but require the `prolog2ann/runtime` library; the pack is not yet published |
 | FR-7 | Implemented for emitted networks — ground queries |
 | FR-8 | Implemented for emitted networks — matching active atoms |
 | FR-9 | Implemented for the supported subset — stratified weighted-neuron fixpoints and configurable step limits |
@@ -32,8 +32,10 @@ current tests does not mean all acceptance requirements are complete.
 4. Complete the training acceptance criterion for held-out examples and
    cross-instance generalisation. Current training updates individual grounded
    clause weights.
-5. Finish release readiness: pack/version metadata, deterministic packaging,
-   and end-to-end checks for an independently installed generated module.
+5. Finish release readiness: publish/installable pack versioning and archive
+   packaging. Generated output is now checked for byte-for-byte determinism,
+   and a fresh-process smoke test verifies it runs without the source file
+   when the runtime library is available.
 
 ## Tests and examples
 
@@ -62,7 +64,8 @@ weight and defaults to `1.0`. The suite checks step/sigmoid/tanh least-model
 agreement on the five acceptance examples (`ancestor`, `reach`, `even_odd`,
 `xor`, and `flies`), plus parsing and diagnostics, finite grounding limits,
 recursion, negation, JSON and module emission, training, extraction,
-verification, and 200 deterministic randomized equivalence cases. See
+verification, deterministic module output, fresh-process module loading, and
+200 deterministic randomized equivalence cases. See
 [`README.md`](README.md) for runnable commands and the feature-to-test index.
 
 The acceptance cases in `pr1.txt` that are not represented by the current
