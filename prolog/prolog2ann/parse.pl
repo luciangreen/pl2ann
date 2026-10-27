@@ -98,6 +98,9 @@ reserved_head(Name, Arity) :-
 %
 % Classify explicitly unsupported control, database, collection, and I/O goals.
 unsupported_goal(!, 0, !) :- !.
+unsupported_goal('->', 2, conditional) :- !.
+unsupported_goal('*->', 2, conditional) :- !.
+unsupported_goal(call, _, meta_call) :- !.
 unsupported_goal(assert, _, assert) :- !.
 unsupported_goal(asserta, _, assert) :- !.
 unsupported_goal(assertz, _, assert) :- !.

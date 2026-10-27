@@ -107,7 +107,11 @@ example demonstrates stratified negation, so `flies(pingu)` is false while
 `flies(tweety)` and `flies(polly)` are true. The `win` and `cut` examples are
 negative cases exercised by the PlUnit suite: `win.pl` must report its
 non-stratified predicate cycle, and `cut.pl` must report `unsupported_construct(!)`
-with a source line.
+with a source line. Unsupported database updates (`assert`/`retract`), collection
+predicates (`findall`), I/O, meta-calls, conditionals, and compound negated
+goals are also rejected as `unsupported_construct(Construct)` errors with the
+source file and line. The parser diagnostic matrix is runnable as part of the
+full suite with `swipl -q -s test/run_tests.pl`.
 
 The converter accepts `--limit N` to cap the grounded Herbrand base (default
 10,000 atoms) and `--steps N` to set the maximum closure rounds for each
@@ -341,6 +345,13 @@ sigmoid, and bipolar tanh modes are implemented. The runtime evaluates the
 emitted weighted neuron facts; symbolic ground rules remain in the module for
 stratum metadata, verification, and extraction.
 
+Unsupported meta-calls and conditional control flow are rejected explicitly as
+`unsupported_construct(meta_call)` and
+`unsupported_construct(conditional)`. Other unsupported system goals are
+rejected as `unsupported_construct(Goal)`. Parser tests verify these errors
+retain the originating file and line; run them with the complete PlUnit command
+below.
+
 Trace facts cover input and output neurons for each ground clause in which their
 atom appears, and hidden neurons for their corresponding ground clause. Clause
 IDs identify the clauses in the grounded network, not original variable-bearing
@@ -390,8 +401,9 @@ Run the PlUnit suite from the repository root:
 swipl -q -s test/run_tests.pl
 ```
 
-The current suite exercises parsing, cut and unsupported arithmetic rejection
-with source lines,
+The current suite exercises parsing, cut, unsupported arithmetic, database
+updates, collection, I/O, meta-call, conditional, and compound-negation
+rejection with source lines,
 negative-cycle detection, the grounding-size limit, stratified negation,
 mutual recursion over a bounded integer range, bounded `is/2` arithmetic and
 integer comparisons, cyclic reachability through a fixpoint (including
@@ -417,7 +429,7 @@ implemented features to the checks run by the command above:
 
 | Feature area | Tests |
 | --- | --- |
-| Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
+| Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_construct_families_with_source_lines`, `reject_unsupported_construct_after_first_clause_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
 | Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `higher_arity_constructors_generate_bounded_terms`, `combinatorial_term_generation_respects_budget`, `list_terms_are_bounded_by_depth`, `compound_values_in_named_domains`, `compound_domain_values_respect_configured_depth`, `compound_term_depth_overflow_has_source_location` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
