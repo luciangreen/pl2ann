@@ -386,9 +386,14 @@ The emitted module reports `network_meta(mode(tanh))`, and JSON export sets
 `"mode": "tanh"`.
 
 In Prolog: `ann_train(Network, [flies(pingu)-false, ...], Trained)` (options
-`epochs(N)`, `rate(R)` via `ann_train/4`) and `ann_save(Trained, File)`. Sigmoid
-outputs are thresholded at 0.5 and agree with step mode. See `DECISIONS.md` for
-the weight bound and training limits.
+`epochs(N)` and `rate(R)` via `ann_train/4`) and
+`ann_save(Trained, File)`. `epochs(N)` must be a non-negative integer, and
+`rate(R)` must be a positive number; invalid values raise a Prolog error rather
+than entering training or silently disabling updates. Defaults are 500 epochs
+and a learning rate of 0.5. Sigmoid outputs are thresholded at 0.5 and agree
+with step mode. Training updates weights for individual grounded clauses and
+does not generalise across instances of a source clause. See `DECISIONS.md`
+for the weight bound and training limits.
 
 The default tanh scale is `1.0`; a positive `--weight W` can select another
 scale. Both training and `ann_agreement/3` support sigmoid mode only.
@@ -407,7 +412,8 @@ rejection with source lines,
 negative-cycle detection, the grounding-size limit, stratified negation,
 mutual recursion over a bounded integer range, bounded `is/2` arithmetic and
 integer comparisons, cyclic reachability through a fixpoint (including
-self-reachability), emitted-module queries and conversion output, JSON export
+self-reachability), training option validation and corrupted-weight repair,
+emitted-module queries and conversion output, JSON export
 and its network fields, the optional runtime step limit,
 input/hidden/output neuron trace facts, source/network equivalence and mismatch
 reporting, and extraction round trips for recursion, stratified negation, and
