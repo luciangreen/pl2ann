@@ -7,7 +7,7 @@ current tests does not mean all acceptance requirements are complete.
 | Requirement | Status |
 | --- | --- |
 | FR-1 | Implemented — `domain/2` and `range/3` define named sets, and `type(Predicate/Arity, Position, Type)` constrains variables at predicate positions; untyped variables use the global universe |
-| FR-2 | Partial — unsupported constructs are rejected with source locations; bounded lists/compound terms are not supported |
+| FR-2 | Partial — unsupported constructs are rejected with source locations; compound/list terms are accepted with an explicit depth bound, but unsupported syntax diagnostics are not exhaustive |
 | FR-3 | Implemented — negative dependency cycles report predicate indicators |
 | FR-4 | Implemented — grounded atom limit defaults to 10,000 and is configurable |
 | FR-5 | Implemented — exact step, scaled sigmoid, and bipolar tanh modes |
@@ -22,8 +22,8 @@ current tests does not mean all acceptance requirements are complete.
 
 ## Remaining work
 
-1. Add bounded list and compound-term grounding, and finish diagnostics for all
-   unsupported syntax.
+1. Finish diagnostics for all unsupported syntax and test bounded-term edge
+   cases such as combinatorial growth and higher-arity constructors.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
@@ -74,5 +74,7 @@ verification, deterministic module output, fresh-process module loading, and
 
 The acceptance cases in `pr1.txt` that are not represented by the current
 supported subset must not be considered complete merely because this suite
-passes. Bounded compound terms, the cited sigmoid-bound proof, held-out
-training generalisation, and release packaging remain open.
+passes. The new bounded term support uses `--term-depth N` and is tested for
+recursive compounds and lists, but its edge-case coverage is incomplete. The
+cited sigmoid-bound proof, held-out training generalisation, and release
+packaging remain open.
