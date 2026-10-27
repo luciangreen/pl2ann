@@ -141,6 +141,22 @@ test(reject_cut_with_source_line) :-
     assertion(nonvar(Error)),
     assertion(Error = error(unsupported_construct(!), file(File, 1))).
 
+test(reject_unsupported_construct_families_with_source_lines) :-
+    forall(member(Source-Construct,
+                 [ "p(X) :- assertz(q(X))."-assert,
+                   "p(X) :- retract(q(X))."-retract,
+                   "p(X) :- findall(Y, q(Y), Ys)."-findall,
+                   "p(X) :- write(X)."-io,
+                   "p(X) :- (q(X) -> r(X))."-conditional,
+                   "p(X) :- (q(X) *-> r(X))."-conditional,
+                   "p(X) :- call(q(X))."-meta_call,
+                   "p(X) :- \\+ (q(X), r(X))."-negated_compound_goal
+                 ]),
+           assert_parse_error(Source, Construct, 1)).
+
+test(reject_unsupported_construct_after_first_clause_with_source_line) :-
+    assert_parse_error("ok(a).\np(X) :- assertz(q(X)).", assert, 2).
+
 test(reject_unsupported_arithmetic_with_source_line) :-
     tmp_file(prolog2ann_arithmetic, File),
     setup_call_cleanup(
@@ -152,6 +168,21 @@ test(reject_unsupported_arithmetic_with_source_line) :-
         ( catch(prolog2ann_parse:parse_file(File, _), Error, true),
           assertion(nonvar(Error)),
           assertion(Error = error(unsupported_construct(_), file(File, 1)))
+        ),
+        delete_file(File)).
+
+assert_parse_error(Source, ExpectedConstruct, ExpectedLine) :-
+    tmp_file(prolog2ann_unsupported, File),
+    setup_call_cleanup(
+        open(File, write, Stream, [encoding(utf8)]),
+        ( format(Stream, '~s', [Source]), nl(Stream) ),
+        close(Stream)),
+    setup_call_cleanup(
+        true,
+        ( catch(prolog2ann_parse:parse_file(File, _), Error, true),
+          Error = error(unsupported_construct(Construct),
+                        file(File, ExpectedLine)),
+          assertion(Construct == ExpectedConstruct)
         ),
         delete_file(File)).
 

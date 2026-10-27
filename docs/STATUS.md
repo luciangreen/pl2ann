@@ -7,7 +7,7 @@ current tests does not mean all acceptance requirements are complete.
 | Requirement | Status |
 | --- | --- |
 | FR-1 | Implemented — `domain/2` and `range/3` define named sets, and `type(Predicate/Arity, Position, Type)` constrains variables at predicate positions; untyped variables use the global universe |
-| FR-2 | Partial — unsupported constructs are rejected with source locations; compound/list terms are accepted with an explicit depth bound, but unsupported syntax diagnostics are not exhaustive |
+| FR-2 | Partial — bounded compound/list terms and source-located errors cover common unsupported forms, including control flow, meta-calls, database updates, collection, I/O, and unsupported arithmetic; full syntax audit remains open |
 | FR-3 | Implemented — negative dependency cycles report predicate indicators |
 | FR-4 | Implemented — grounded atom limit defaults to 10,000 and is configurable |
 | FR-5 | Implemented — exact step, scaled sigmoid, and bipolar tanh modes |
@@ -22,10 +22,13 @@ current tests does not mean all acceptance requirements are complete.
 
 ## Remaining work
 
-1. Finish diagnostics for all unsupported syntax. Bounded-term generation now
-   has a configurable `--term-limit` budget checked before each depth layer;
-   tests cover combinatorial growth and higher-arity constructors. Explicit
-   compound/list domain values are checked against `--term-depth`.
+1. Complete the unsupported-syntax audit beyond the covered diagnostic matrix.
+   Current tests verify source locations for cut, unsupported arithmetic,
+   conditionals, meta-calls, database updates, collection, I/O, and compound
+   negation. Bounded-term generation has a configurable `--term-limit` budget
+   checked before each depth layer; tests cover combinatorial growth and
+   higher-arity constructors. Explicit compound/list domain values are checked
+   against `--term-depth`.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
