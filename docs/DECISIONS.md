@@ -29,6 +29,14 @@ evaluation. `domain/2` declarations may also explicitly seed ground compound
 or list values; these values must fit the configured depth and participate in
 the declared type like atomic domain values.
 
+Term construction has its own `term_limit(N)` budget (CLI `--term-limit N`),
+defaulting to 100,000, in addition to the Herbrand-base atom limit. It counts
+initial distinct universe values plus constructor candidates across depth
+layers, including candidates later deduplicated. Each layer's Cartesian-product
+size is checked before constructing that layer, so high-arity constructors
+cannot bypass the budget by producing many intermediate terms before the atom
+limit is checked.
+
 ## Unsupported terms
 
 Terms outside the configured depth and unsupported built-ins are rejected

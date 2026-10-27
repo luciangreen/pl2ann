@@ -2,8 +2,9 @@
           [ ground_program/5,
             ground_program_typed/7,
             ground_program_typed/8,
-            read_domain/2,
-            read_domain_schema/3
+          ground_program_typed/9,
+          read_domain/2,
+          read_domain_schema/3
           ]).
 
 :- use_module(library(lists)).
@@ -136,14 +137,27 @@ ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
 % to TermDepth. Zero retains the function-free behavior.
 ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
                      GroundClauses, Limit, TermDepth, Atoms) :-
+    ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                         GroundClauses, Limit, TermDepth, 100000, Atoms).
+
+%! ground_program_typed(+Normalised, +DomainValues, +TypeDomains,
+%!                      +PositionTypes, -GroundClauses, +Limit, +TermDepth,
+%!                      +TermLimit, -Atoms) is det.
+%
+% As ground_program_typed/8, bounding initial universe values and the total
+% number of generated constructor candidates by TermLimit.
+ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
+                     GroundClauses, Limit, TermDepth, TermLimit, Atoms) :-
     must_be(nonneg, TermDepth),
+    must_be(positive_integer, TermLimit),
     validate_domain_value_depths(DomainValues, TermDepth),
     validate_template_depths(Normalised, TermDepth),
     source_values(Normalised, SourceValues),
     append(DomainValues, SourceValues, AtomicValues0),
     sort(AtomicValues0, AtomicValues),
     source_constructors(Normalised, Constructors),
-    bounded_universe(AtomicValues, Constructors, TermDepth, Universe),
+    bounded_universe(AtomicValues, Constructors, TermDepth, TermLimit,
+                     Universe),
     require_finite_universe(Normalised, Universe),
     findall(Ground,
             ( member(Clause, Normalised),
@@ -233,31 +247,86 @@ source_constructors(Clauses, Constructors) :-
             Constructors0),
     sort(Constructors0, Constructors).
 
-%! bounded_universe(+AtomicValues, +Constructors, +Depth, -Universe) is det.
+%! bounded_universe(+AtomicValues, +Constructors, +Depth, +TermLimit,
+%!                  -Universe) is det.
 %
-% Construct all ground terms from source functors through the requested depth.
-bounded_universe(AtomicValues, _, 0, AtomicValues) :-
+% Construct all ground terms from source functors through the requested depth,
+% subject to a cumulative candidate-generation budget.
+bounded_universe(AtomicValues, _, 0, TermLimit, AtomicValues) :-
+    length(AtomicValues, InitialCount),
+    require_term_generation_limit(InitialCount, TermLimit),
     !.
-bounded_universe(AtomicValues, Constructors, Depth, Universe) :-
-    bounded_universe(1, Depth, Constructors, AtomicValues, Universe).
+bounded_universe(AtomicValues, Constructors, Depth, TermLimit, Universe) :-
+    length(AtomicValues, InitialCount),
+    require_term_generation_limit(InitialCount, TermLimit),
+    bounded_universe(1, Depth, Constructors, AtomicValues, InitialCount,
+                     TermLimit, Universe).
 
-bounded_universe(CurrentDepth, MaximumDepth, _, Values, Values) :-
+bounded_universe(CurrentDepth, MaximumDepth, _, Values, _, _, Values) :-
     CurrentDepth > MaximumDepth,
     !.
-bounded_universe(CurrentDepth, MaximumDepth, Constructors, Values0, Values) :-
-    findall(Term,
-            ( member(Name/Arity, Constructors),
-              length(Arguments, Arity),
-              maplist(member_value(Values0), Arguments),
-              Term =.. [Name|Arguments],
-              term_depth(Term, CurrentDepth)
-            ),
-            Terms0),
-    sort(Terms0, Terms),
+bounded_universe(CurrentDepth, MaximumDepth, Constructors, Values0, Work0,
+                 TermLimit, Values) :-
+    generated_terms(Constructors, Values0, CurrentDepth, Work0, TermLimit,
+                    Terms, Work),
     append(Values0, Terms, Values1),
     sort(Values1, Values2),
     NextDepth is CurrentDepth + 1,
-    bounded_universe(NextDepth, MaximumDepth, Constructors, Values2, Values).
+    bounded_universe(NextDepth, MaximumDepth, Constructors, Values2, Work,
+                     TermLimit, Values).
+
+%! generated_terms(+Constructors, +Universe, +Depth, +Work, +TermLimit,
+%!                 -Terms, -Work) is det.
+%
+% Generate one depth layer after checking its Cartesian-product size.
+generated_terms(Constructors, Universe, Depth, Work0, TermLimit, Terms, Work) :-
+    PreviousDepth is Depth - 1,
+    BeforePreviousDepth is Depth - 2,
+    include(term_within_depth(PreviousDepth), Universe, EligibleValues),
+    include(term_within_depth(BeforePreviousDepth), Universe,
+            PreviousValues),
+    length(EligibleValues, EligibleCount),
+    length(PreviousValues, PreviousCount),
+    findall(Count,
+            ( member(_/Arity, Constructors),
+              integer_power(EligibleCount, Arity, AllTerms),
+              integer_power(PreviousCount, Arity, PreviousTerms),
+              Count is AllTerms - PreviousTerms
+            ),
+            Counts),
+    sum_list(Counts, CandidateCount),
+    Work is Work0 + CandidateCount,
+    require_term_generation_limit(Work, TermLimit),
+    findall(Term,
+            ( member(Name/Arity, Constructors),
+              length(Arguments, Arity),
+              maplist(member_value(EligibleValues), Arguments),
+              Term =.. [Name|Arguments],
+              term_depth(Term, Depth)
+            ),
+            Terms0),
+    sort(Terms0, Terms).
+
+term_within_depth(Limit, Term) :-
+    term_depth(Term, Depth),
+    Depth =< Limit.
+
+integer_power(Base, Exponent, Power) :-
+    integer_power(Exponent, Base, 1, Power).
+
+integer_power(0, _, Power, Power) :-
+    !.
+integer_power(Exponent, Base, Accumulator, Power) :-
+    Exponent > 0,
+    NextAccumulator is Accumulator * Base,
+    NextExponent is Exponent - 1,
+    integer_power(NextExponent, Base, NextAccumulator, Power).
+
+require_term_generation_limit(Count, Limit) :-
+    (   Count =< Limit
+    ->  true
+    ;   throw(error(term_generation_limit(Count, Limit), _))
+    ).
 
 member_value(Values, Value) :-
     member(Value, Values).
