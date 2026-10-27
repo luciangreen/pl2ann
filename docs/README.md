@@ -110,8 +110,10 @@ non-stratified predicate cycle, and `cut.pl` must report `unsupported_construct(
 with a source line. Unsupported database updates (`assert`/`retract`), collection
 predicates (`findall`), I/O, meta-calls, conditionals, and compound negated
 goals are also rejected as `unsupported_construct(Construct)` errors with the
-source file and line. The parser diagnostic matrix is runnable as part of the
-full suite with `swipl -q -s test/run_tests.pl`.
+source file and line. Exception handling (`catch`/`throw`), additional control
+flow (`once`, `ignore`, `forall`, `repeat`), and DCG calls (`phrase`) are
+rejected explicitly as well. The parser diagnostic matrix is runnable as part
+of the full suite with `swipl -q -s test/run_tests.pl`.
 
 The converter accepts `--limit N` to cap the grounded Herbrand base (default
 10,000 atoms) and `--steps N` to set the maximum closure rounds for each
@@ -247,9 +249,9 @@ conversions with identical inputs produce byte-identical generated modules.
 `--limit N` is a separate conversion-time cap on the grounded Herbrand base
 (default 10,000); it is not a runtime step limit. The CLI supports:
 
-- `convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--step-limit N] --out FILE [--module NAME] [--json FILE]`
+- `convert SOURCE [--domain FILE] [--mode step|sigmoid|tanh] [--weight auto|W] [--limit N] [--term-depth N] [--term-limit N] [--step-limit N|--steps N] --out FILE [--module NAME] [--json FILE]`
 - `query NETWORK.pl "ground_goal"`
-- `verify SOURCE NETWORK.pl [--domain FILE]`
+- `verify SOURCE NETWORK.pl [--domain FILE] [--term-depth N] [--term-limit N]`
 
 The `--json FILE` option writes a JSON object containing `mode`, `atoms`,
 `neurons` (IDs, layers, activations, and thresholds), `edges` (source, target,
@@ -435,7 +437,7 @@ implemented features to the checks run by the command above:
 
 | Feature area | Tests |
 | --- | --- |
-| Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_construct_families_with_source_lines`, `reject_unsupported_construct_after_first_clause_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
+| Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_construct_families_with_source_lines`, `reject_unsupported_control_exception_and_grammar_goals_with_source_lines`, `reject_unsupported_construct_after_first_clause_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
 | Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `higher_arity_constructors_generate_bounded_terms`, `combinatorial_term_generation_respects_budget`, `list_terms_are_bounded_by_depth`, `compound_values_in_named_domains`, `compound_domain_values_respect_configured_depth`, `compound_term_depth_overflow_has_source_location` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |

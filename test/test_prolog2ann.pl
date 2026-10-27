@@ -178,6 +178,19 @@ test(reject_unsupported_construct_families_with_source_lines) :-
                  ]),
            assert_parse_error(Source, Construct, 1)).
 
+test(reject_unsupported_control_exception_and_grammar_goals_with_source_lines) :-
+    forall(member(Source-Construct,
+                 [ "p(X) :- catch(q(X), Error, r(X))."-exception_handling,
+                   "p(X) :- throw(error(X))."-exception_handling,
+                   "p(X) :- once(q(X))."-control_flow,
+                   "p(X) :- ignore(q(X))."-control_flow,
+                   "p(X) :- forall(q(X), r(X))."-control_flow,
+                   "p(X) :- repeat."-control_flow,
+                   "p(X) :- phrase(q(X), [a])."-dcg,
+                   "p(X) :- phrase(q(X), [a], [])."-dcg
+                 ]),
+           assert_parse_error(Source, Construct, 1)).
+
 test(reject_unsupported_construct_after_first_clause_with_source_line) :-
     assert_parse_error("ok(a).\np(X) :- assertz(q(X)).", assert, 2).
 

@@ -24,11 +24,11 @@ current tests does not mean all acceptance requirements are complete.
 
 1. Complete the unsupported-syntax audit beyond the covered diagnostic matrix.
    Current tests verify source locations for cut, unsupported arithmetic,
-   conditionals, meta-calls, database updates, collection, I/O, and compound
-   negation. Bounded-term generation has a configurable `--term-limit` budget
-   checked before each depth layer; tests cover combinatorial growth and
-   higher-arity constructors. Explicit compound/list domain values are checked
-   against `--term-depth`.
+   conditionals, meta-calls, exception handling, additional control flow,
+   DCGs, database updates, collection, I/O, and compound negation. Bounded-term
+   generation has a configurable `--term-limit` budget checked before each
+   depth layer; tests cover combinatorial growth and higher-arity constructors.
+   Explicit compound/list domain values are checked against `--term-depth`.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
@@ -89,5 +89,7 @@ supported subset must not be considered complete merely because this suite
 passes. Bounded term support uses `--term-depth N` and is tested for recursive
 compounds and lists, higher-arity constructors, combinatorial generation
 limits, and rejection of explicit domain values that exceed the configured
-depth. Exhaustive diagnostics for unsupported syntax, the cited sigmoid-bound
-proof, held-out training generalisation, and release packaging remain open.
+depth. The unsupported-syntax tests cover the listed diagnostic families but
+do not establish exhaustive coverage of every SWI-Prolog built-in or syntax
+form. The cited sigmoid-bound proof, held-out training generalisation, and
+release packaging remain open.
