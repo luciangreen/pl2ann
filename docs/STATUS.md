@@ -23,7 +23,8 @@ current tests does not mean all acceptance requirements are complete.
 ## Remaining work
 
 1. Finish diagnostics for all unsupported syntax and test bounded-term edge
-   cases such as combinatorial growth and higher-arity constructors.
+   cases such as combinatorial growth and higher-arity constructors. Explicit
+   compound/list domain values are checked against `--term-depth`.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.
@@ -75,6 +76,7 @@ verification, deterministic module output, fresh-process module loading, and
 The acceptance cases in `pr1.txt` that are not represented by the current
 supported subset must not be considered complete merely because this suite
 passes. The new bounded term support uses `--term-depth N` and is tested for
-recursive compounds and lists, but its edge-case coverage is incomplete. The
-cited sigmoid-bound proof, held-out training generalisation, and release
+recursive compounds and lists, including rejection of explicit domain values
+that exceed the configured depth, but its edge-case coverage is incomplete.
+The cited sigmoid-bound proof, held-out training generalisation, and release
 packaging remain open.

@@ -152,7 +152,10 @@ type(item/1, 1, term).
 ```
 
 Convert and verify programs using these declarations with `--term-depth 2`;
-the positional type restricts `item/1` variables to the listed values.
+the positional type restricts `item/1` variables to the listed values. The
+depth bound applies to explicit domain values as well as generated terms:
+`node(a)` and `[a, b]` have depth 1, and conversion rejects either value with
+`term_depth_exceeded(Actual, Limit)` if the configured bound is too small.
 
 The CLI also supports `--module NAME` to choose the generated module name.
 `convert` accepts `--mode step`, `--mode sigmoid`, or `--mode tanh`. For the

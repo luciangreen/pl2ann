@@ -263,6 +263,20 @@ test(compound_values_in_named_domains) :-
           delete_file(Domain)
         )).
 
+test(compound_domain_values_respect_configured_depth) :-
+    Clauses = [source(_)],
+    Options = [domain_values([node(a)]),
+               domain_types([term-[node(a)]]),
+               position_types([source/1-1-term])],
+    catch(prolog2ann:convert_clauses(Clauses,
+                                     [term_depth(0)|Options], _),
+          Error,
+          true),
+    assertion(Error = error(term_depth_exceeded(1, 0), _)),
+    prolog2ann:convert_clauses(Clauses, [term_depth(1)|Options], Network),
+    Network = network(Atoms, _, _, _, _, _, _),
+    assertion(memberchk(source(node(a)), Atoms)).
+
 test(compound_term_depth_overflow_has_source_location) :-
     tmp_file(prolog2ann_compound, Source),
     setup_call_cleanup(

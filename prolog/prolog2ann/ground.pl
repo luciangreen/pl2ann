@@ -137,6 +137,7 @@ ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
 ground_program_typed(Normalised, DomainValues, TypeDomains, PositionTypes,
                      GroundClauses, Limit, TermDepth, Atoms) :-
     must_be(nonneg, TermDepth),
+    validate_domain_value_depths(DomainValues, TermDepth),
     validate_template_depths(Normalised, TermDepth),
     source_values(Normalised, SourceValues),
     append(DomainValues, SourceValues, AtomicValues0),
@@ -201,6 +202,17 @@ validate_template_depths(
         Depth > Limit
     ->  throw(error(term_depth_exceeded(Depth, Limit), file(File, Line)))
     ;   validate_template_depths(Rest, Limit)
+    ).
+
+%! validate_domain_value_depths(+Values, +Limit) is det.
+%
+% Reject explicit compound values that exceed the configured term depth.
+validate_domain_value_depths([], _).
+validate_domain_value_depths([Value|Rest], Limit) :-
+    term_depth(Value, Depth),
+    (   Depth =< Limit
+    ->  validate_domain_value_depths(Rest, Limit)
+    ;   throw(error(term_depth_exceeded(Depth, Limit), _))
     ).
 
 %! source_constructors(+Clauses, -Constructors) is det.
