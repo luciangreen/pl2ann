@@ -22,8 +22,9 @@ current tests does not mean all acceptance requirements are complete.
 
 ## Remaining work
 
-1. Finish diagnostics for all unsupported syntax and test bounded-term edge
-   cases such as combinatorial growth and higher-arity constructors. Explicit
+1. Finish diagnostics for all unsupported syntax. Bounded-term generation now
+   has a configurable `--term-limit` budget checked before each depth layer;
+   tests cover combinatorial growth and higher-arity constructors. Explicit
    compound/list domain values are checked against `--term-depth`.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
@@ -62,6 +63,13 @@ type-directed domains. The domain file supports declarations such as
 `type(parent/2, 1, person).`; see [`README.md`](README.md#typed-finite-domains)
 for the syntax and semantics.
 
+Bounded compound/list conversion accepts `--term-depth N` and
+`--term-limit N` (default 100,000 generated candidates plus initial universe
+values). The term budget is checked before allocating each constructor layer;
+`--limit N` separately caps grounded atoms. Tests
+`higher_arity_constructors_generate_bounded_terms` and
+`combinatorial_term_generation_respects_budget` cover these bounds.
+
 For another supported activation, repeat conversion with
 `--mode sigmoid --weight auto` or `--mode tanh`; sigmoid rejects a supplied
 weight below its current derived bound, while tanh accepts any positive
@@ -75,8 +83,8 @@ verification, deterministic module output, fresh-process module loading, and
 
 The acceptance cases in `pr1.txt` that are not represented by the current
 supported subset must not be considered complete merely because this suite
-passes. The new bounded term support uses `--term-depth N` and is tested for
-recursive compounds and lists, including rejection of explicit domain values
-that exceed the configured depth, but its edge-case coverage is incomplete.
-The cited sigmoid-bound proof, held-out training generalisation, and release
-packaging remain open.
+passes. Bounded term support uses `--term-depth N` and is tested for recursive
+compounds and lists, higher-arity constructors, combinatorial generation
+limits, and rejection of explicit domain values that exceed the configured
+depth. Exhaustive diagnostics for unsupported syntax, the cited sigmoid-bound
+proof, held-out training generalisation, and release packaging remain open.

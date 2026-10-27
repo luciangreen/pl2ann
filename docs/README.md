@@ -124,7 +124,14 @@ generates finite ground terms from compound functors in the source, including
 the list constructor, up to that nesting depth. Terms deeper than the bound in
 a fixed source fact or rule are rejected with a source-located
 `term_depth_exceeded(Actual, Limit)` error; substitutions that would exceed
-the bound are omitted. Use the same `--term-depth` value with verification:
+the bound are omitted. `--term-limit N` (or `term_limit(N)` in the library
+options) separately caps the initial universe values plus all constructor
+candidates generated across depth layers; it defaults to 100,000. The cap is
+checked before each Cartesian-product layer is allocated, and failures report
+`term_generation_limit(Required, Limit)`. This construction-work budget
+includes candidates later deduplicated; `--limit N` remains the separate cap
+on grounded atoms. Use the same `--term-depth` value with verification, and
+provide a sufficient `--term-limit` if conversion used a larger budget:
 
 ```sh
 cat > build/terms.pl <<'EOF'
@@ -132,6 +139,7 @@ p(a).
 p(f(X)) :- p(X).
 EOF
 swipl bin/prolog2ann.pl convert build/terms.pl --term-depth 2 \
+  --term-limit 100000 \
   --out build/net_terms.pl --module net_terms
 swipl bin/prolog2ann.pl query build/net_terms.pl "p(f(f(a)))"
 swipl bin/prolog2ann.pl verify build/terms.pl build/net_terms.pl \
@@ -141,8 +149,9 @@ swipl bin/prolog2ann.pl verify build/terms.pl build/net_terms.pl \
 The configured depth is applied to terms inside predicate arguments; atoms and
 variables have depth zero, and each compound/list layer adds one. Constructors
 not present in the source are not invented. Term generation can grow
-combinatorially, so start with a small depth and use `--limit` to cap the
-resulting network's atom base.
+combinatorially, especially for higher-arity constructors, so start with a
+small depth. `--term-limit` bounds construction work before allocation and
+`--limit` caps the resulting network's atom base.
 
 Named domains may also supply explicit ground compound/list values:
 
@@ -207,7 +216,9 @@ conversions with identical inputs produce byte-identical generated modules.
   compound/list terms when a sufficient `--term-depth` is set.
 - A configurable maximum Herbrand-base size (default 10,000).
 - Optional finite compound/list grounding with `--term-depth N`; the default
-  depth is zero and preserves function-free behavior.
+  depth is zero and preserves function-free behavior. `--term-limit N` bounds
+  initial universe values and constructor candidates before allocation
+  (default 100,000).
 - Step, sigmoid, and bipolar tanh Prolog networks with ground queries, pattern
   queries, and fixpoint step reporting, evaluated from their weighted neuron,
   edge, and recurrent-link facts. The default per-stratum limit is base size + 1;
@@ -407,7 +418,7 @@ implemented features to the checks run by the command above:
 | Feature area | Tests |
 | --- | --- |
 | Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
-| Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `list_terms_are_bounded_by_depth`, `compound_values_in_named_domains`, `compound_term_depth_overflow_has_source_location` |
+| Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `higher_arity_constructors_generate_bounded_terms`, `combinatorial_term_generation_respects_budget`, `list_terms_are_bounded_by_depth`, `compound_values_in_named_domains`, `compound_domain_values_respect_configured_depth`, `compound_term_depth_overflow_has_source_location` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |

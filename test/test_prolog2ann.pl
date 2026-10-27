@@ -217,6 +217,23 @@ test(compound_terms_respect_configured_depth) :-
         ),
         ( unload_file(Path), delete_file(Path) )).
 
+test(higher_arity_constructors_generate_bounded_terms) :-
+    Clauses = [seed(a), seed(b),
+               (out(triple(X, Y, Z)) :- seed(X), seed(Y), seed(Z))],
+    prolog2ann:convert_clauses(
+        Clauses, [term_depth(1), term_limit(10)], Network),
+    Network = network(Atoms, _, _, _, _, _, _),
+    assertion(memberchk(out(triple(a, b, b)), Atoms)),
+    assertion(memberchk(out(triple(b, b, b)), Atoms)).
+
+test(combinatorial_term_generation_respects_budget) :-
+    Clauses = [seed(a), seed(b), seed(c),
+               (out(pair(X, Y)) :- seed(X), seed(Y))],
+    catch(prolog2ann:convert_clauses(
+              Clauses, [term_depth(1), term_limit(11)], _),
+          Error, true),
+    assertion(Error = error(term_generation_limit(12, 11), _)).
+
 test(list_terms_are_bounded_by_depth) :-
     prolog2ann:convert_clauses(
         [item(a), (item([X]) :- item(X))],
