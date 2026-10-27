@@ -101,6 +101,14 @@ unsupported_goal(!, 0, !) :- !.
 unsupported_goal('->', 2, conditional) :- !.
 unsupported_goal('*->', 2, conditional) :- !.
 unsupported_goal(call, _, meta_call) :- !.
+unsupported_goal(catch, 3, exception_handling) :- !.
+unsupported_goal(throw, 1, exception_handling) :- !.
+unsupported_goal(once, 1, control_flow) :- !.
+unsupported_goal(ignore, 1, control_flow) :- !.
+unsupported_goal(forall, 2, control_flow) :- !.
+unsupported_goal(repeat, 0, control_flow) :- !.
+unsupported_goal(phrase, 2, dcg) :- !.
+unsupported_goal(phrase, 3, dcg) :- !.
 unsupported_goal(assert, _, assert) :- !.
 unsupported_goal(asserta, _, assert) :- !.
 unsupported_goal(assertz, _, assert) :- !.
