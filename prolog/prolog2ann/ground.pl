@@ -103,9 +103,12 @@ valid_type_reference(_, _).
 
 %! finite_value(+Value) is semidet.
 %
-% Domain members must be atomic.
+% Domain members must be ground finite terms.
 finite_value(Value) :-
-    atomic(Value).
+    (   atomic(Value)
+    ;   compound(Value),
+        ground(Value)
+    ).
 
 %! ground_program(+Normalised, +DomainValues, -GroundClauses, +Limit, -Atoms) is det.
 %

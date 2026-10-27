@@ -144,6 +144,16 @@ not present in the source are not invented. Term generation can grow
 combinatorially, so start with a small depth and use `--limit` to cap the
 resulting network's atom base.
 
+Named domains may also supply explicit ground compound/list values:
+
+```prolog
+domain(term, [node(a), [a, b]]).
+type(item/1, 1, term).
+```
+
+Convert and verify programs using these declarations with `--term-depth 2`;
+the positional type restricts `item/1` variables to the listed values.
+
 The CLI also supports `--module NAME` to choose the generated module name.
 `convert` accepts `--mode step`, `--mode sigmoid`, or `--mode tanh`. For the
 sigmoid mode, `--weight auto` chooses the documented fan-in-dependent bound;
@@ -186,11 +196,12 @@ conversions with identical inputs produce byte-identical generated modules.
   Integer expressions accept variables, integer literals, and `+`, `-`, `*`,
   `//`, `mod`, and `rem`; unsupported arithmetic expressions are rejected with
   a source-located `unsupported_construct` error.
-- Optional named domains in the form `domain(Type, [constant, ...])` or
+- Optional named domains in the form `domain(Type, [value, ...])` or
   `range(Type, Low, High)`. Positional `type(Predicate/Arity, Position, Type)`
   declarations restrict variables appearing at those predicate positions;
   constraints on a shared variable intersect. Variables without a typed
-  occurrence use the global universe.
+  occurrence use the global universe. Domain values can be atomic, or ground
+  compound/list terms when a sufficient `--term-depth` is set.
 - A configurable maximum Herbrand-base size (default 10,000).
 - Optional finite compound/list grounding with `--term-depth N`; the default
   depth is zero and preserves function-free behavior.
@@ -393,7 +404,7 @@ implemented features to the checks run by the command above:
 | Feature area | Tests |
 | --- | --- |
 | Parsing, unsupported syntax, and stratification | `parse_example`, `reject_cut_with_source_line`, `reject_unsupported_arithmetic_with_source_line`, `reject_non_stratified_negation`, `reject_win_acceptance_example` |
-| Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `list_terms_are_bounded_by_depth`, `compound_term_depth_overflow_has_source_location` |
+| Finite grounding, typed/integer domains, bounded terms, and limits | `grounding_limit`, `finite_domain_required_for_variables`, `typed_domains_restrict_and_intersect_variables`, `mutual_recursion_with_integer_range`, `bounded_arithmetic_and_comparisons`, `compound_terms_respect_configured_depth`, `list_terms_are_bounded_by_depth`, `compound_values_in_named_domains`, `compound_term_depth_overflow_has_source_location` |
 | Neurons, weighted execution, and source traces | `translation_includes_weighted_neurons`, `weighted_network_facts_drive_runtime`, `neuron_traceability_covers_all_layers` |
 | Queries, recursion, and negation | `stratified_negation_and_query`, `xor_acceptance_and_equivalence`, `cyclic_reachability_reaches_fixpoint` |
 | Emission, JSON, and step limits | `convert_file_creates_output`, `export_json_network_representation`, `convert_file_creates_json_output`, `configured_runtime_step_limit` |

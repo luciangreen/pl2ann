@@ -23,7 +23,7 @@ current tests does not mean all acceptance requirements are complete.
 ## Remaining work
 
 1. Finish diagnostics for all unsupported syntax and test bounded-term edge
-   cases such as combinatorial growth and type-directed compound arguments.
+   cases such as combinatorial growth and higher-arity constructors.
 2. Verify the sigmoid weight bound against the cited CILP paper. The current
    fan-in-dependent bound is derived and explicitly not claimed as the published
    formula. Tanh execution is implemented, but tanh training is not.

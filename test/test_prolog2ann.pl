@@ -231,6 +231,38 @@ test(list_terms_are_bounded_by_depth) :-
         ),
         ( unload_file(Path), delete_file(Path) )).
 
+test(compound_values_in_named_domains) :-
+    tmp_file(prolog2ann_compound_domain_source, Source),
+    tmp_file(prolog2ann_compound_domain, Domain),
+    setup_call_cleanup(
+        ( open(Source, write, SourceStream),
+          write(SourceStream, 'source(X).'),
+          nl(SourceStream),
+          write(SourceStream, 'copied(X) :- source(X).'),
+          nl(SourceStream),
+          close(SourceStream),
+          open(Domain, write, DomainStream),
+          write(DomainStream, 'domain(term, [node(a), [a, b]]).'),
+          nl(DomainStream),
+          write(DomainStream, 'type(source/1, 1, term).'),
+          nl(DomainStream),
+          write(DomainStream, 'type(copied/1, 1, term).'),
+          nl(DomainStream),
+          close(DomainStream)
+        ),
+        ( prolog2ann:convert_file(Source,
+                                  [domain(Domain), term_depth(2)],
+                                  Network),
+          prolog2ann:ann_verify(Source, Network,
+                                [domain(Domain), term_depth(2)], equivalent),
+          Network = network(Atoms, _, _, _, _, _, _),
+          assertion(memberchk(copied(node(a)), Atoms)),
+          assertion(memberchk(copied([a, b]), Atoms))
+        ),
+        ( delete_file(Source),
+          delete_file(Domain)
+        )).
+
 test(compound_term_depth_overflow_has_source_location) :-
     tmp_file(prolog2ann_compound, Source),
     setup_call_cleanup(

@@ -25,7 +25,9 @@ grounding. Fixed source structures deeper than the bound are errors with their
 source location, while substitutions that would produce deeper atoms are
 excluded. The Herbrand-base limit remains a separate cap on represented atoms.
 This is a finite syntactic term universe, not unrestricted Prolog term
-evaluation.
+evaluation. `domain/2` declarations may also explicitly seed ground compound
+or list values; these values must fit the configured depth and participate in
+the declared type like atomic domain values.
 
 ## Unsupported terms
 
