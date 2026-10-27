@@ -15,7 +15,7 @@ current tests does not mean all acceptance requirements are complete.
 | FR-7 | Implemented for emitted networks — ground queries |
 | FR-8 | Implemented for emitted networks — matching active atoms |
 | FR-9 | Implemented for the supported subset — stratified weighted-neuron fixpoints and configurable step limits |
-| FR-10 | Partial — sigmoid backpropagation and saving work on ground-network weights; training does not generalise across instances of a source clause |
+| FR-10 | Partial — sigmoid backpropagation and saving work on ground-network weights; epochs and learning rates are validated, but training does not generalise across instances of a source clause |
 | FR-11 | Implemented — extracts represented ground rules from step-mode network terms or loaded generated modules |
 | FR-12 | Implemented for grounded network clauses — input, hidden, and output traces include source file and line |
 | FR-13 | Implemented — JSON exports atoms, neurons, edges, recurrent links, and traces for step, sigmoid, and tanh modes |

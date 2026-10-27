@@ -126,7 +126,13 @@ ann_train(Network, Examples, Options, Trained) :-
     must_be(list, Examples),
     forall(member(E, Examples), valid_example(E)),
     option(epochs(Epochs), Options, 500),
+    must_be(nonneg, Epochs),
     option(rate(Rate), Options, 0.5),
+    must_be(number, Rate),
+    (   Rate > 0
+    ->  true
+    ;   throw(error(domain_error(positive_learning_rate, Rate), _))
+    ),
     require_sigmoid(Network),
     train_loop(Epochs, Rate, Examples, Network, Trained).
 

@@ -135,6 +135,30 @@ test(train_rejects_step_network) :-
     catch(prolog2ann:ann_train(Net, [p(a)-true], _),
           error(domain_error(sigmoid_network, step), _), true).
 
+test(train_rejects_negative_epochs) :-
+    prolog2ann:convert_clauses([p(a)], [mode(sigmoid)], Net),
+    catch(prolog2ann:ann_train(Net, [p(a)-true], [epochs(-1)], _),
+          Error, true),
+    assertion(Error = error(type_error(nonneg, -1), _)).
+
+test(train_rejects_non_integer_epochs) :-
+    prolog2ann:convert_clauses([p(a)], [mode(sigmoid)], Net),
+    catch(prolog2ann:ann_train(Net, [p(a)-true], [epochs(1.5)], _),
+          Error, true),
+    assertion(Error = error(type_error(nonneg, 1.5), _)).
+
+test(train_rejects_nonpositive_rate) :-
+    prolog2ann:convert_clauses([p(a)], [mode(sigmoid)], Net),
+    catch(prolog2ann:ann_train(Net, [p(a)-true], [rate(0)], _),
+          Error, true),
+    assertion(Error = error(domain_error(positive_learning_rate, 0), _)).
+
+test(train_rejects_non_numeric_rate) :-
+    prolog2ann:convert_clauses([p(a)], [mode(sigmoid)], Net),
+    catch(prolog2ann:ann_train(Net, [p(a)-true], [rate(fast)], _),
+          Error, true),
+    assertion(Error = error(type_error(number, fast), _)).
+
 test(reject_cut_with_source_line) :-
     test_prolog2ann:example(cut, File),
     catch(prolog2ann_parse:parse_file(File, _), Error, true),
