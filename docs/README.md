@@ -112,8 +112,10 @@ predicates (`findall`), I/O, meta-calls, conditionals, and compound negated
 goals are also rejected as `unsupported_construct(Construct)` errors with the
 source file and line. Exception handling (`catch`/`throw`), additional control
 flow (`once`, `ignore`, `forall`, `repeat`), and DCG calls (`phrase`) are
-rejected explicitly as well. The parser diagnostic matrix is runnable as part
-of the full suite with `swipl -q -s test/run_tests.pl`.
+rejected explicitly as `unsupported_construct(exception_handling)`,
+`unsupported_construct(control_flow)`, and `unsupported_construct(dcg)`,
+respectively. The parser diagnostic matrix is runnable as part of the full
+suite with `swipl -q -s test/run_tests.pl`.
 
 The converter accepts `--limit N` to cap the grounded Herbrand base (default
 10,000 atoms) and `--steps N` to set the maximum closure rounds for each
